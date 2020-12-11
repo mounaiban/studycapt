@@ -7,9 +7,11 @@ for Python int's.
 
 A "slow" version was implemented in captdriver, which compares all
 first n-bit values (e.g. 0x01, 0x02, 0x04, 0x08 ...) from the largest
-possible of the "unsigned" type to the smallest. With 32-bit integers,
-the worst case involves 31 comparisons, one shift and one subtraction
-in the main loop.
+possible of the "unsigned" type to the smallest.
+
+With 32-bit integers, the worst case involves 93 operations in the main
+loop: a comparison, a shift and a subtraction for each iteration, over
+31 iterations.
 
 This routine is contained in find_msb() in hiscoa-compress.c, and is
 invoked from an inner loop of hiscoa_compress_band() by way of
@@ -122,8 +124,7 @@ def find_msb_bisearch(val, sizeof=4):
     Attempted binary search find_msb() with no division
 
     This routine was found to be frequently slower for numbers
-    ~32 bits and smaller, as the search often takes more than 32
-    operations.
+    close to 32 bits in actual value.
 
     Conversely, it is almost twice as fast for 64-bit numbers,
     and more than twice for 128-bit numbers, so save it for
@@ -135,16 +136,15 @@ def find_msb_bisearch(val, sizeof=4):
     nbmin = 0
     if(val <= 1):
         return val
-    if(val == ( (1<<(nbmax)) | (1<<(nbmax))-1)):
-        # max value of an int given a sizeof() value
+    elif(val > (1<<(nbmax))):
         return nbmax
     
     while(nbmax != nbmin+1):
         nbits = nbmax - ((nbmax - nbmin) >> 1)
-        # print(nbits, nbmin, nbmax)
-        if ((1 << nbits) > val) and ((1 << nbits-1) < val):
+        e = (1 << nbits)
+        if (e > val) and ((1 << nbits-1) < val):
             return nbits
-        elif ((1 << nbits) < val):
+        elif (e < val):
             nbmin = nbits
         else:
             nbmax = nbits
