@@ -118,6 +118,23 @@ def find_msb_shortcut_quadchoice(val, sizeof=4):
 
     return nbits + 1
 
+def find_msb_twoway(val, sizeof=4):
+    """
+    Two-way linear search which attempts to find the approximate
+    location of the MSB, before changing direction to perform a
+    precise search.
+
+    """
+    guard_val(val, sizeof)
+    if(val == 0):
+        return 0
+
+    nbits = sizeof<<3
+    while(val < (1 << nbits)):
+        nbits -= 4
+    while(val >= (1 << nbits)):
+        nbits += 1
+    return nbits
 
 def find_msb_bisearch(val, sizeof=4):
     """
@@ -138,7 +155,7 @@ def find_msb_bisearch(val, sizeof=4):
         return val
     elif(val > (1<<(nbmax))):
         return nbmax
-    
+
     while(nbmax != nbmin+1):
         nbits = nbmax - ((nbmax - nbmin) >> 1)
         e = (1 << nbits)
@@ -152,7 +169,7 @@ def find_msb_bisearch(val, sizeof=4):
 
 # Benchmarking stuff
 #
-SAMPLE_SIZE = 20000
+SAMPLE_SIZE = 100000
 get_sample = lambda s,b:[randbelow(1<<(i%b)) for i in range(s)]
     # Get s random numbers, each up to b bits long
 sample_32 = get_sample(SAMPLE_SIZE, 32)
@@ -161,6 +178,7 @@ funcs = (
     find_msb,
     find_msb_shortcut_dualchoice,
     find_msb_shortcut_quadchoice,
+    find_msb_twoway,
     find_msb_bisearch
 )
 
