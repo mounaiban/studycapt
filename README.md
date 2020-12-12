@@ -5,11 +5,14 @@ This is just a repository for miscellaneous experiments, tools and tips dedicate
 to an ongoing goal of implementing a *superior*® alternative driver for CAPT-only
 Canon laser printers.
 
-For now, there's just ``find_msb.py``, an experiment in trying to improve
-``find_msb()``. It contains benchmarks and re-implementations of the function,
-examined in Python.
+For now, there's just two items:
 
-### Running the Benchmarks
+* ``find_msb.py``, an experiment in trying to improve ``find_msb()``
+
+* ``bytes2pbm``, a command line tool to generate 1-bit Portable Bitmaps
+  (specifically, PBM P1 images). Includes an importable function, ``bytes_to_pbm()``
+
+### Running the find\_msb() Benchmarks
 ```
 $ python -im find_msb
 >>> benchmark()
@@ -21,6 +24,31 @@ To benchmark with 64-bit and 128-bit numbers:
 ...
 >>> sample_128 = get_sample(100000, 128)
 >>> benchmark(sample=sample_128, sizeof=16)
+```
+
+### Using bytes2pbm
+Assuming that ``bytes2pbm.py`` is already marked as executable with
+``chmod +x bytes2pbm.py`` or any alternative method:
+
+```
+# inputs should be (w*h)/8 bytes long, bytes will be ignored or padded
+# if the input length is not correct
+
+# visualise a file as a 104x100x1bpp bitmap
+$ ./bytes2pbm 104 100 your_file > vis.pbm
+
+# enter text to be visualised as a 16x16 bitmap
+$ ./bytes2pbm 16 16 - > message.pbm
+
+# you cannot crib from RNGs as random bytes can be mistaken as malformed strings
+$ dd if=/dev/urandom bs=1 count=800 | ./bytes2pbm 80 80 -
+...
+UnicodeDecodeError: ....
+
+# instead, output such streams to a separate file:
+$ dd if=/dev/urandom bs=1 count=800 of=random.bin
+$ ./bytes2pbm 80 80 random.bin > random.pbm
+
 ```
 Have fun!
 
