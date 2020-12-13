@@ -5,14 +5,12 @@ This is just a repository for miscellaneous experiments, tools and tips dedicate
 to an ongoing goal of implementing a *superior*® alternative driver for CAPT-only
 Canon laser printers.
 
-For now, there's just two items:
+For now, there's just the following items:
 
-* ``find_msb.py``, an experiment in trying to improve ``find_msb()``
+### find\_msb()
+An experiment in improving ``find_msb()``, a function in ``hiscoa-compress.c`` that finds the position of an integer's highest bit, similar to Python's ``int.bit_length()``.
 
-* ``bytes2pbm``, a command line tool to generate 1-bit Portable Bitmaps
-  (specifically, PBM P1 images). Includes an importable function, ``bytes_to_pbm()``
-
-### Running the find\_msb() Benchmarks
+To run the benchmarks:
 ```
 $ python -im find_msb
 >>> benchmark()
@@ -26,7 +24,10 @@ To benchmark with 64-bit and 128-bit numbers:
 >>> benchmark(sample=sample_128, sizeof=16)
 ```
 
-### Using bytes2pbm
+### bytes2pbm
+A script to make PBM P1 images from standard input or files, visualising it
+as a 1-bpp bitmap.
+
 Assuming that ``bytes2pbm.py`` is already marked as executable with
 ``chmod +x bytes2pbm.py`` or any alternative method:
 
@@ -50,6 +51,20 @@ $ dd if=/dev/urandom bs=1 count=800 of=random.bin
 $ ./bytes2pbm 80 80 random.bin > random.pbm
 
 ```
+
+### in2pbmp4.sh
+A script to make PBM P4 images from files, by basically slapping a PBM P4 header
+onto an excerpt of the first bytes of a file. PBM P4s are eight times as compact
+as a P1, and are recommended when there is no need to tinker with individual bits.
+
+Assuming that ``in2pbmp4.sh`` is already marked as executable with
+``chmod +x`` or any alternative method:
+
+```
+# Visualise the first (104*80)/8 bytes of a file:
+$ ./in2bpmp4 104 80 your_file > visp4.pbm
+```
+
 Have fun!
 
 ## Licensing
