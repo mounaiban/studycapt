@@ -1,3 +1,4 @@
+#! /bin/python
 """
 Print Test Page Generator: Balls
 Create a single-page SVG test print document filled with balls.
@@ -8,16 +9,6 @@ with compression routines.
 
 This module was created for use with Captdriver, but it should be
 suitable for testing any other printer driver.
-
-Example Usage:
-
-Use balls_page() to generate the test pages
-
->>> balls_page(8, 210, 297, unit="mm" mode="grey")
-# generates an A4-sized SVG document page with 8x8==64 grey balls
-
->>> balls_page(4, 8, 11, unit="in" mode="color")
-# generates a US Letter-sized page with 16 coloured balls
 
 """
 # Written by Moses Chong
@@ -36,9 +27,9 @@ Use balls_page() to generate the test pages
 # TODO: Can CSS further reduce output data size?
 # TODO: Document argument format for functions
 # TODO: Re-implement using XML API (xml.etree)
-# TODO: Enable use from shell command line.
 
 from math import log2
+from sys import argv, stderr
 
 DOCTYPE = "<?xml version='1.0' encoding='UTF-8' standalone='no' ?>"
 GREY = '#999'
@@ -61,16 +52,17 @@ svg_s = lambda w,h,cont: svg_fmt.format(w,h, XMLNS_SVG, XMLNS_XLINK, cont)
 def _ball_symbol(rw, r_h, unit=UNIT_DEFAULT):
     """
     Return a string containing the Ball SVG symbol.
-    'Ball' is a circle centered within an imaginary rectangle of
-    size rw x rh.
+    'Ball' (as in rugby ball) is an ellipse centered within an imaginary
+    rectangle of size rw x rh.
 
     """
     BALL_ID = 'ball'
     qx_c = q(rw/2, unit)
     qy_c = q(r_h/2, unit)
-    qr = q(min(rw, r_h)/2.25, unit)
-    circle = f"<circle cx='{qx_c}' cy='{qy_c}' r='{qr}' />"
-    symbol = f"<symbol id='{BALL_ID}'>\n{circle}\n</symbol>"
+    qrx = q(rw/2.03125, unit)
+    qry = q(r_h/2.03125, unit)
+    ellipse = f"<ellipse cx='{qx_c}' cy='{qy_c}' rx='{qrx}' ry='{qry}' />"
+    symbol = f"<symbol id='{BALL_ID}'>\n{ellipse}\n</symbol>"
     return symbol
 
 def _rad_gradient_def(stop_list, rg_id=0):
@@ -167,6 +159,14 @@ def balls_page(m, w, h, unit=UNIT_DEFAULT, mode='grey'):
     * mode: selects shading on the Balls, current choices are
       'grey', 'color' and 'grey-radial-gradient'
 
+    Example Usage
+    =============
+    >>> balls_page(8, 210, 297, unit="mm" mode="grey")
+    # generates an A4-sized SVG document page with 8x8==64 grey balls
+
+    >>> balls_page(4, 8, 11, unit="in" mode="color")
+    # generates a US Letter-sized page with 16 coloured balls
+
     """
     mode_fns = {
         'grey': _grey_flat_ball,
@@ -208,4 +208,29 @@ def balls_page(m, w, h, unit=UNIT_DEFAULT, mode='grey'):
     svg = svg_s(dw, dh, cont)
     page = ''.join((DOCTYPE, '\n', svg))
     return page
+
+def print_preset_page(size_name, m, mode='grey'):
+    # execute command line call
+    sizes = {
+        'a4': (210, 297, 'mm'),
+        'a5': (148, 210, 'mm'),
+        'f4': (215.9, 330, 'mm'),
+        'jis-b5': (182, 257, 'mm'),
+        'legal': (8.5, 14, 'in'),
+        'letter': (8.5, 11, 'in'),
+        'sac-16k': (195, 270, 'mm'),
+    }
+    if size_name in sizes:
+        a = sizes[size_name]
+        print(balls_page(int(m), a[0], a[1], unit=a[2], mode=mode))
+    else:
+        msg = f"SIZE_NAME must be one of the following: {tuple(sizes.keys())}"
+        print(msg, file=stderr)
+
+if __name__ == '__main__':
+    if len(argv) < 3:
+        msg = f"Usage: {argv[0]} SIZE_NAME BALLS_PER_ROW [MODE]"
+        print(msg, file=stderr)
+    else:
+        print_preset_page(*argv[1:])
 
