@@ -65,7 +65,7 @@ Assuming that ``in2pbmp4.sh`` is already marked as executable with
 $ ./in2bpmp4 104 80 your_file > visp4.pbm
 ```
 
-### sample\_balls.sh
+### sample\_balls
 A script to generate print test pages in SVG format.
 
 ```
