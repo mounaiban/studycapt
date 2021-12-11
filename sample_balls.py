@@ -170,15 +170,17 @@ def balls_page(m, w, h, unit=UNIT_DEFAULT, mode='grey'):
     """
     mode_fns = {
         'grey': _grey_flat_ball,
+        'gray': _grey_flat_ball,
         'color': _color_flat_ball,
-        'grey-radial-gradient': _gradi_ball
+        'colour': _color_flat_ball,
+        'bw-radial-gradient': _gradi_ball
     }
     if mode not in mode_fns:
         choices = tuple(mode_fns.keys())
         raise ValueError(f'mode: please select from {choices}')
     fn = mode_fns[mode]
     if log2(m) % 1 != 0:
-        raise ValueError('m must be power of two')
+        raise ValueError('m, number of balls per row, must be power of two')
     desc_text = desc_text_fmt.format(n=m, shading=mode)
     desc = desc_fmt.format(desc_text)
     # prepare defs
