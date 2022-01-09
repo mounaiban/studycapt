@@ -1,18 +1,20 @@
 #! /bin/python
 """
 Print Test Page Generator: Balls
-Create a single-page SVG test print document filled with balls.
+Create a single-page SVG test print document filled with ellipse balls.
 
-The functions in this module are intended for generating test pages to
-verify correctness of output, and also to diagnose performance issues
-with compression routines.
+The functions in this module are intended for generating test pages to verify
+correctness of compression routines and to diagnose performance issues.
 
-This module was created for use with Captdriver, but it should be
-suitable for testing any other printer driver.
+CUPS test pages are currently recommended instead for verifying accuracy of
+output.
+
+This module was created for use with Captdriver, but it should be suitable for
+testing any other printer driver.
 
 """
 # Written by Moses Chong
-# (2021/01/02)
+# (First public version: 2021/01/02)
 # PUBLIC DOMAIN, NO RIGHTS RESERVED
 #
 # To the extent possible under law, the author(s) have dedicated all
@@ -28,11 +30,22 @@ suitable for testing any other printer driver.
 # TODO: Document argument format for functions
 # TODO: Re-implement using XML API (xml.etree)
 
+from argparse import ArgumentParser
 from math import log2
 from sys import argv, stderr
 
 DOCTYPE = "<?xml version='1.0' encoding='UTF-8' standalone='no' ?>"
 GREY = '#999'
+SIZES = {
+    'a4': (210, 297, 'mm'),
+    'a5': (148, 210, 'mm'),
+    'f4': (215.9, 330, 'mm'),
+    'jis-b5': (182, 257, 'mm'),
+    'legal': (8.5, 14, 'in'),
+    'letter': (8.5, 11, 'in'),
+    'sac-16k': (195, 270, 'mm'),
+}
+# MODES_FNS: see bottom of module, after function declarations
 XMLNS_SVG = 'http://www.w3.org/2000/svg' 
 XMLNS_XLINK = 'http://www.w3.org/1999/xlink'
 UNIT_DEFAULT = 'mm'
@@ -168,17 +181,10 @@ def balls_page(m, w, h, unit=UNIT_DEFAULT, mode='grey'):
     # generates a US Letter-sized page with 16 coloured balls
 
     """
-    mode_fns = {
-        'grey': _grey_flat_ball,
-        'gray': _grey_flat_ball,
-        'color': _color_flat_ball,
-        'colour': _color_flat_ball,
-        'bw-radial-gradient': _gradi_ball
-    }
-    if mode not in mode_fns:
-        choices = tuple(mode_fns.keys())
+    if mode not in MODES_FNS:
+        choices = tuple(MODES_FNS.keys())
         raise ValueError(f'mode: please select from {choices}')
-    fn = mode_fns[mode]
+    fn = MODES_FNS[mode]
     if log2(m) % 1 != 0:
         raise ValueError('m, number of balls per row, must be power of two')
     desc_text = desc_text_fmt.format(n=m, shading=mode)
@@ -213,26 +219,52 @@ def balls_page(m, w, h, unit=UNIT_DEFAULT, mode='grey'):
 
 def print_preset_page(size_name, m, mode='grey'):
     # execute command line call
-    sizes = {
-        'a4': (210, 297, 'mm'),
-        'a5': (148, 210, 'mm'),
-        'f4': (215.9, 330, 'mm'),
-        'jis-b5': (182, 257, 'mm'),
-        'legal': (8.5, 14, 'in'),
-        'letter': (8.5, 11, 'in'),
-        'sac-16k': (195, 270, 'mm'),
-    }
-    if size_name in sizes:
-        a = sizes[size_name]
+    if size_name in SIZES:
+        a = SIZES[size_name]
         print(balls_page(int(m), a[0], a[1], unit=a[2], mode=mode))
     else:
         msg = f"SIZE_NAME must be one of the following: {tuple(sizes.keys())}"
         print(msg, file=stderr)
 
+MODES_FNS = {
+    'grey': _grey_flat_ball,
+    'gray': _grey_flat_ball,
+    'color': _color_flat_ball,
+    'colour': _color_flat_ball,
+    'bw-radial-gradient': _gradi_ball
+} # NOTE: this dict had to be placed after function definitions
+
 if __name__ == '__main__':
-    if len(argv) < 3:
-        msg = f"Usage: {argv[0]} SIZE_NAME BALLS_PER_ROW [MODE]"
-        print(msg, file=stderr)
-    else:
-        print_preset_page(*argv[1:])
+    parser_spec = {
+        'desc': 'Generate SVG sample pages for printer compression tests',
+        'args': {
+            '--size': {
+                'choices': SIZES.keys(),
+                'required': True,
+            },
+            '--balls-per-row': {
+                'type': int,
+                'default': 2,
+                'help': 'balls per row and column, must be a power of 2',
+            },
+            '--mode': {
+                'choices': MODES_FNS.keys(),
+                'default': next(iter(MODES_FNS.keys())),
+            },
+        },
+    }
+
+    parser = ArgumentParser(description=parser_spec['desc'])
+    for k_arg in parser_spec['args']:
+        spec_arg = parser_spec['args'][k_arg]
+        parser.add_argument(
+            k_arg,
+            default=spec_arg.get('default'),
+            choices=spec_arg.get('choices'),
+            required=spec_arg.get('required', False),
+            help=spec_arg.get('help'),
+        )
+
+    args = parser.parse_args()
+    print_preset_page(size_name=args.size, m=args.balls_per_row, mode=args.mode)
 

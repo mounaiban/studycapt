@@ -65,15 +65,15 @@ Assuming that ``in2pbmp4.sh`` is already marked as executable with
 $ ./in2bpmp4 104 80 your_file > visp4.pbm
 ```
 
-### sample\_balls
+### sample\_balls.py
 A script to generate print test pages in SVG format.
 
 ```
 # Generate an A4-sized page filled with 16x16 grey ellipses
-$ ./sample_balls a4 16 grey > test_a4_grey.svg
+$ ./sample_balls --size a4 --balls-per-row 16 --mode grey > test_a4_grey.svg
 
-# Generate a US Letter-sized page filled with 8x8 gradient-filled ellipses
-$ ./sample_balls letter grey-radial-gradient > test_letter_grads.svg
+# Generate a US Letter-sized page filled with 2x2 gradient-filled ellipses
+$ ./sample_balls --size letter --mode bw-radial-gradient > test_letter_grads.svg
 
 ```
 
