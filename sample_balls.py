@@ -58,8 +58,8 @@ desc_fmt = "<desc>{}</desc>\n"
 grad_a = ((0, "000"),(100, "fff"))
 grad_b = ((0, "eee"),(100, "000"))
 
-q = lambda s, unit: f"{s}{unit}" # quantity with unit as string
-svg_s = lambda w,h,cont: svg_fmt.format(w,h, XMLNS_SVG, XMLNS_XLINK, cont)
+q = lambda s, unit: "{}{}".format(s,unit) # quantity with unit as string
+svg_s = lambda w,h,cont: svg_fmt.format(w, h, XMLNS_SVG, XMLNS_XLINK, cont)
     # build SVG section
 
 def _ball_symbol(rw, r_h, unit=UNIT_DEFAULT):
@@ -74,8 +74,10 @@ def _ball_symbol(rw, r_h, unit=UNIT_DEFAULT):
     qy_c = q(r_h/2, unit)
     qrx = q(rw/2.03125, unit)
     qry = q(r_h/2.03125, unit)
-    ellipse = f"<ellipse cx='{qx_c}' cy='{qy_c}' rx='{qrx}' ry='{qry}' />"
-    symbol = f"<symbol id='{BALL_ID}'>\n{ellipse}\n</symbol>"
+    ellipse = "<ellipse cx='{}' cy='{}' rx='{}' ry='{}' />".format(
+        qx_c, qy_c, qrx, qry
+    )
+    symbol = "<symbol id='{}'>\n{}\n</symbol>".format(BALL_ID, ellipse)
     return symbol
 
 def _rad_gradient_def(stop_list, rg_id=0):
@@ -112,10 +114,12 @@ def _ball(x, y, fill, unit=UNIT_DEFAULT, u_id=None):
     """
     idp = ''
     if u_id is not None:
-        idp = ''.join((f"id='{u_id}'", ' ',))
+        idp = ''.join(("id='{0}'".format(u_id), ' ',))
     qx_r = q(x, unit)
     qy_r = q(y, unit)
-    use = f"<use {idp}x='{qx_r}' y='{qy_r}' fill='{fill}' xlink:href='#ball'/>"
+    use = "<use {}x='{}' y='{}' fill='{}' xlink:href='#ball'/>".format(
+        idp, qx_r, qy_r, fill
+    )
     return use
 
 def _grey_flat_ball(x, y, unit=UNIT_DEFAULT, u_id=None, i=0):
@@ -153,7 +157,7 @@ def _gradi_ball(x, y, unit=UNIT_DEFAULT, u_id=None, i=0):
 
     """
     k = i % 2
-    fill_url = f"url(#rg-{k})"
+    fill_url = "url(#rg-{})".format(k)
     return _ball(x, y, fill_url, unit=unit, u_id=u_id)
 
 def balls_page(m, w, h, unit=UNIT_DEFAULT, mode='grey'):
@@ -183,7 +187,7 @@ def balls_page(m, w, h, unit=UNIT_DEFAULT, mode='grey'):
     """
     if mode not in MODES_FNS:
         choices = tuple(MODES_FNS.keys())
-        raise ValueError(f'mode: please select from {choices}')
+        raise ValueError('mode: please select from {}'.format(choices))
     fn = MODES_FNS[mode]
     if log2(m) % 1 != 0:
         raise ValueError('m, number of balls per row, must be power of two')
@@ -223,7 +227,9 @@ def print_preset_page(size_name, m, mode='grey'):
         a = SIZES[size_name]
         print(balls_page(int(m), a[0], a[1], unit=a[2], mode=mode))
     else:
-        msg = f"SIZE_NAME must be one of the following: {tuple(sizes.keys())}"
+        msg = "SIZE_NAME must be one of the following: {}".format(
+            tuple(sizes.keys())
+        )
         print(msg, file=stderr)
 
 MODES_FNS = {
