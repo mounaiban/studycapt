@@ -37,10 +37,12 @@
 local function detect_capt(buffer, pinfo, tree)
 	if buffer:len() < 4 then return false end -- no command is shorter than 4B
 	cmd_bytes = buffer(0,2):le_uint()
-	if opcodes[cmd_bytes] ~= nil then
+	if opcodes[cmd_bytes] then
 		captstatus_proto.dissector(buffer, pinfo, tree)
 		return true
-	elseif opcodes_prn[cmd_bytes] ~= nil then
+	elseif opcodes_prn[cmd_bytes] then
+		pinfo.cols['info']:clear()
+		pinfo.cols['protocol'] = 'CAPT Device Control'
 		captstatus_prn_proto.dissector(buffer, pinfo, tree)
 		return true
 	else return false end
@@ -94,15 +96,33 @@ opcodes_prn = {
 }
 local capt_prn_cmd = ProtoField.uint16("capt_prn.cmd","Command", base.HEX, opcodes_prn)
 local prn_p_size = ProtoField.uint16("capt_prn.p_size", "Packet Size", base.DEC)
-captstatus_prn_proto.fields = {capt_prn_cmd, prn_p_size} 
+local params = ProtoField.new("Parameters", "capt_prn.params", ftypes.BYTES)
+local gr_cmd = ProtoField.new("Grouped Command Data", "capt_prn.grouped", ftypes.BYTES)
+-- PROTIP: ProtoField.new puts name argument first
+captstatus_prn_proto.fields = {capt_prn_cmd, prn_p_size, params, gr_cmd}
 
 function captstatus_prn_proto.dissector(buffer, pinfo, tree)
-    pinfo.cols['protocol'] = 'CAPT Device Control'
-    local t_captprn = tree:add(captstatus_prn_proto, buffer())
+    local t_pckt = tree:add(captstatus_prn_proto, buffer())
 	local br_opcode = buffer(0, 2)
-    t_captprn:add_le(capt_prn_cmd, br_opcode)
-	pinfo.cols['info'] = opcodes_prn[br_opcode:le_uint()]
-    t_captprn:add_le(prn_p_size, buffer(2, 2))
+	local mne = opcodes_prn[br_opcode:le_uint()]
+	local size = buffer(2, 2):le_uint()
+    local t_captcmd = t_pckt:add_le(capt_prn_cmd, br_opcode)
+    t_captcmd:add_le(prn_p_size, buffer(2, 2))
+	pinfo.cols['info']:append(mne .. ' ')
+	if mne == "CAPT_SET_PARMS" then
+		-- dissect multi-command packet
+		local i = 4
+		while i < size do
+			local n = buffer(i+2, 2):le_uint()
+			local t_grcmd = t_captcmd:add(gr_cmd, buffer(i, n))
+			captstatus_prn_proto.dissector(buffer(i, n):tvb(), pinfo, t_grcmd)
+			i = i + n -- is there a Lua increment operator?
+		end
+	else
+		if size > 4 then
+			t_captcmd:add(params, buffer(4, size-4))
+		end
+	end
 end
 
 --
