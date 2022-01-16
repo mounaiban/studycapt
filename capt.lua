@@ -85,6 +85,7 @@ opcodes_prn = {
 	[0xD0A0] = "CAPT_SET_PARM_PAGE",
 	[0xD0A1] = "CAPT_SET_PARM_1",
 	[0xD0A2] = "CAPT_SET_PARM_2",
+	[0xD0A4] = "CAPT_SET_PARM_HISCOA",
 	[0xD0A9] = "CAPT_SET_PARMS", -- for multi-command packets
 	[0xE0A2] = "CAPT_START_2",
 	[0xE0A3] = "CAPT_START_1",
