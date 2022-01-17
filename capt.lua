@@ -98,8 +98,8 @@ opcodes_prn = {
 local capt_prn_cmd = ProtoField.uint16("capt_prn.cmd","Command", base.HEX, opcodes_prn)
 local prn_p_size = ProtoField.uint16("capt_prn.p_size", "Packet Size", base.DEC)
 local params = ProtoField.new("Parameters", "capt_prn.params", ftypes.BYTES)
-local gr_cmd = ProtoField.new("Grouped Command Data", "capt_prn.grouped", ftypes.BYTES)
--- PROTIP: ProtoField.new puts name argument first
+	-- PROTIP: ProtoField.new puts name argument first
+local gr_cmd = ProtoField.string("capt_prn.group", "Grouped Command")
 captstatus_prn_proto.fields = {capt_prn_cmd, prn_p_size, params, gr_cmd}
 
 function captstatus_prn_proto.dissector(buffer, pinfo, tree)
@@ -115,7 +115,10 @@ function captstatus_prn_proto.dissector(buffer, pinfo, tree)
 		local i = 4
 		while i < size do
 			local n = buffer(i+2, 2):le_uint()
-			local t_grcmd = t_captcmd:add(gr_cmd, buffer(i, n))
+			local gr_op_num = buffer(i, 2):le_uint()
+			local gr_mne = opcodes_prn[gr_op_num]
+			local gr_op_mne = string.format("%s (0x%x)", gr_mne, gr_op_num)
+			local t_grcmd = t_captcmd:add(gr_cmd, buffer(i, n), gr_op_mne)
 			captstatus_prn_proto.dissector(buffer(i, n):tvb(), pinfo, t_grcmd)
 			i = i + n -- is there a Lua increment operator?
 		end
