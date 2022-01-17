@@ -38,6 +38,7 @@ local function detect_capt(buffer, pinfo, tree)
 	if buffer:len() < 4 then return false end -- no command is shorter than 4B
 	cmd_bytes = buffer(0,2):le_uint()
 	if opcodes[cmd_bytes] then
+		pinfo.cols['protocol'] = 'CAPT Status Monitor'
 		captstatus_proto.dissector(buffer, pinfo, tree)
 		return true
 	elseif opcodes_prn[cmd_bytes] then
@@ -61,10 +62,9 @@ opcodes = {
 }
 local stat_p_size = ProtoField.uint16("capt_status.p_size", "Packet Size", base.DEC)
 local capt_stat_cmd = ProtoField.uint16("capt_status.cmd","Command", base.HEX, opcodes)
-captstatus_proto.fields = {capt_stat_cmd, stat_p_size} 
+captstatus_proto.fields = {capt_stat_cmd, stat_p_size}
 
 function captstatus_proto.dissector(buffer, pinfo, tree)
-    pinfo.cols['protocol'] = 'CAPT Status Monitor'
     local t_captstatus = tree:add(captstatus_proto, buffer())
 	local br_opcode = buffer(0, 2)
     t_captstatus:add_le(capt_stat_cmd, br_opcode)
