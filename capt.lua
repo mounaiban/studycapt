@@ -133,6 +133,8 @@ function captstatus_prn_proto.dissector(buffer, pinfo, tree)
 		-- select sub-dissector
 		if opcode == 0xD0A0 then
 			d0a0_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+		elseif opcode == 0xD0A4 then
+			d0a4_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
 		elseif opcode == 0xE1A1 then
 			e1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
 		end
@@ -178,6 +180,30 @@ function d0a0_proto.dissector(buffer, pinfo, tree)
 	if buffer:len() >= 34 then
 		tree:add(d0a0_fuser_mode, buffer(36,1))
 	end
+end
+
+-- 0xD0A4: CAPT_SET_PARM_HISCOA
+local prefix = 'capt_set_parm_hiscoa'
+local d0a4_L3 = ProtoField.int8(prefix .. ".L3", "L3", base.DEC)
+local d0a4_L5 = ProtoField.int8(prefix .. ".L5", "L5", base.DEC)
+local d0a4_mag_a = ProtoField.int8(prefix .. ".magic_a", "Magic Number A", base.DEC)
+local d0a4_mag_b = ProtoField.int8(prefix .. ".magic_b", "Magic Number B", base.DEC)
+local d0a4_L0 = ProtoField.int8(prefix .. ".L0", "L0", base.DEC)
+local d0a4_L2 = ProtoField.int8(prefix .. ".L2", "L2", base.DEC)
+local d0a4_L4 = ProtoField.int16(prefix .. ".L4", "L4", base.DEC)
+d0a4_proto = Proto("capt_prn_d0a4", "CAPT: HiSCoA Parameters")
+d0a4_proto.fields = {
+	d0a4_L3, d0a4_L5, d0a4_mag_a, d0a4_mag_b, d0a4_L0, d0a4_L2, d0a4_L4
+}
+
+function d0a4_proto.dissector(buffer, pinfo, tree)
+	tree:add(d0a4_L3, buffer(0,1))
+	tree:add(d0a4_L5, buffer(1,1))
+	tree:add(d0a4_mag_a, buffer(2,1))
+	tree:add(d0a4_mag_b, buffer(3,1))
+	tree:add(d0a4_L0, buffer(4,1))
+	tree:add(d0a4_L2, buffer(5,1))
+	tree:add_le(d0a4_L4, buffer(6,2))
 end
 
 -- E1A1: CAPT_JOB_SETUP
