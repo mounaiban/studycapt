@@ -42,7 +42,7 @@ local function detect_capt(buffer, pinfo, tree)
 	cmd_bytes = buffer(0,2):le_uint()
 	if opcodes[cmd_bytes] then
 		pinfo.cols['protocol'] = 'CAPT Status Monitor'
-		captstatus_proto.dissector(buffer, pinfo, tree)
+		captstatus_prn_proto.dissector(buffer, pinfo, tree)
 		return true
 	elseif opcodes_prn[cmd_bytes] then
 		pinfo.cols['info']:clear()
@@ -54,8 +54,6 @@ end
 
 -- TODO: make protocol names look prettier in WS
 
--- Status Monitor Main Dissector
-captstatus_proto = Proto("capt_status", "Canon Advanced Printing Technology Status Monitor")
 opcodes = {
     [0xA0A1] = "CAPT_CHKJOBSTAT",
     [0xA0A8] = "CAPT_XSTATUS",
@@ -63,20 +61,10 @@ opcodes = {
     [0xA1A1] = "CAPT_IDENT",
     [0xE0A0] = "CAPT_CHKSTATUS",
 }
-local stat_p_size = ProtoField.uint16("capt_status.p_size", "Packet Size", base.DEC)
-local capt_stat_cmd = ProtoField.uint16("capt_status.cmd","Command", base.HEX, opcodes)
-captstatus_proto.fields = {capt_stat_cmd, stat_p_size}
+local capt_stat_cmd = ProtoField.uint16("capt.cmd","Command", base.HEX, opcodes)
 
-function captstatus_proto.dissector(buffer, pinfo, tree)
-    local t_captstatus = tree:add(captstatus_proto, buffer())
-	local br_opcode = buffer(0, 2)
-    t_captstatus:add_le(capt_stat_cmd, br_opcode)
-	pinfo.cols['info'] = opcodes[br_opcode:le_uint()]
-    t_captstatus:add_le(stat_p_size, buffer(2, 2))
-end
-
--- Device Control Main Dissector
-captstatus_prn_proto = Proto("capt_prn", "Canon Advanced Printing Technology Device Control")
+-- Main Dissector
+captstatus_prn_proto = Proto("capt", "Canon Advanced Printing Technology Device Control")
 opcodes_prn = {
 	[0xA0A0] = "CAPT_NOP", -- classified as a control command to do nothing
 	[0xA2A0] = "CAPT_JOB_BEGIN",
@@ -96,23 +84,37 @@ opcodes_prn = {
 	[0xE1A1] = "CAPT_JOB_SETUP",
 	[0xE1A2] = "CAPT_GPIO",
 }
-local capt_prn_cmd = ProtoField.uint16("capt_prn.cmd","Command", base.HEX, opcodes_prn)
+local capt_prn_cmd = ProtoField.uint16("capt.cmd","Command", base.HEX, opcodes_prn)
 local prn_p_size = ProtoField.uint16("capt_prn.p_size", "Packet Size", base.DEC)
 local params = ProtoField.new("Parameters", "capt_prn.params", ftypes.BYTES)
 	-- PROTIP: ProtoField.new puts name argument first
 local gr_cmd = ProtoField.string("capt_prn.group", "Grouped Command") -- TODO: change to capt_prn.gcmd
-captstatus_prn_proto.fields = {capt_prn_cmd, prn_p_size, params, gr_cmd}
+captstatus_prn_proto.fields = {
+	capt_stat_cmd,
+	capt_prn_cmd,
+	prn_p_size,
+	params,
+	gr_cmd
+}
 
 function captstatus_prn_proto.dissector(buffer, pinfo, tree)
     local t_pckt = tree:add(captstatus_prn_proto, buffer()) -- heading
 	local br_opcode = buffer(0, 2)
 	local opcode = br_opcode:le_uint()
-	local mne = opcodes_prn[opcode]
 	local size = buffer(2, 2):le_uint()
-    local t_captcmd = t_pckt:add_le(capt_prn_cmd, br_opcode)
+	local t_captcmd
+	local mne
+	if opcodes[opcode] then
+		mne = opcodes[opcode]
+		t_captcmd = t_pckt:add_le(capt_stat_cmd, br_opcode)
+		pinfo.cols['info']:set(mne)
+	else
+		mne = opcodes_prn[opcode]
+		t_captcmd = t_pckt:add_le(capt_prn_cmd, br_opcode)
+		pinfo.cols['info']:append(mne .. ' ')
+	end
     t_captcmd:add_le(prn_p_size, buffer(2, 2))
-	pinfo.cols['info']:append(mne .. ' ')
-	if mne == "CAPT_SET_PARMS" then -- TODO: change to opcode check for consistency
+	if opcode == 0xD0A9 then
 		-- dissect multi-command packet
 		local i = 4
 		while i < size do
@@ -238,4 +240,4 @@ function e1a1_proto.dissector(buffer, pinfo, tree)
 end
 
 --
-captstatus_proto:register_heuristic("usb.bulk", detect_capt)
+captstatus_prn_proto:register_heuristic("usb.bulk", detect_capt)
