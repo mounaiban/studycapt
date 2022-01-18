@@ -29,7 +29,10 @@
 -- not dissected.
 
 --
--- Dissector Selection Heuristic
+-- Main Dissectors
+--
+
+-- Selection Heuristic
 --
 -- This classifies packets by the first two bytes of the USB bulk transfer
 -- payload. If a known CAPT opcode is detected, a suitable dissector is
@@ -49,9 +52,9 @@ local function detect_capt(buffer, pinfo, tree)
 	else return false end
 end
 
---
--- Status Monitor Dissector Setup
---
+-- TODO: make protocol names look prettier in WS
+
+-- Status Monitor Main Dissector
 captstatus_proto = Proto("capt_status", "Canon Advanced Printing Technology Status Monitor")
 opcodes = {
     [0xA0A1] = "CAPT_CHKJOBSTAT",
@@ -72,10 +75,8 @@ function captstatus_proto.dissector(buffer, pinfo, tree)
     t_captstatus:add_le(stat_p_size, buffer(2, 2))
 end
 
---
--- Device Control Dissector Setup
---
-captstatus_prn_proto = Proto("capt_prn", "Canon Advanced Printing Technology Device Control") -- TODO: make the name look prettier in WS
+-- Device Control Main Dissector
+captstatus_prn_proto = Proto("capt_prn", "Canon Advanced Printing Technology Device Control")
 opcodes_prn = {
 	[0xA0A0] = "CAPT_NOP", -- classified as a control command to do nothing
 	[0xA2A0] = "CAPT_JOB_BEGIN",
@@ -99,18 +100,19 @@ local capt_prn_cmd = ProtoField.uint16("capt_prn.cmd","Command", base.HEX, opcod
 local prn_p_size = ProtoField.uint16("capt_prn.p_size", "Packet Size", base.DEC)
 local params = ProtoField.new("Parameters", "capt_prn.params", ftypes.BYTES)
 	-- PROTIP: ProtoField.new puts name argument first
-local gr_cmd = ProtoField.string("capt_prn.group", "Grouped Command")
+local gr_cmd = ProtoField.string("capt_prn.group", "Grouped Command") -- TODO: change to capt_prn.gcmd
 captstatus_prn_proto.fields = {capt_prn_cmd, prn_p_size, params, gr_cmd}
 
 function captstatus_prn_proto.dissector(buffer, pinfo, tree)
-    local t_pckt = tree:add(captstatus_prn_proto, buffer())
+    local t_pckt = tree:add(captstatus_prn_proto, buffer()) -- heading
 	local br_opcode = buffer(0, 2)
-	local mne = opcodes_prn[br_opcode:le_uint()]
+	local opcode = br_opcode:le_uint()
+	local mne = opcodes_prn[opcode]
 	local size = buffer(2, 2):le_uint()
     local t_captcmd = t_pckt:add_le(capt_prn_cmd, br_opcode)
     t_captcmd:add_le(prn_p_size, buffer(2, 2))
 	pinfo.cols['info']:append(mne .. ' ')
-	if mne == "CAPT_SET_PARMS" then
+	if mne == "CAPT_SET_PARMS" then -- TODO: change to opcode check for consistency
 		-- dissect multi-command packet
 		local i = 4
 		while i < size do
@@ -122,11 +124,117 @@ function captstatus_prn_proto.dissector(buffer, pinfo, tree)
 			captstatus_prn_proto.dissector(buffer(i, n):tvb(), pinfo, t_grcmd)
 			i = i + n -- is there a Lua increment operator?
 		end
-	else
-		if size > 4 then
-			t_captcmd:add(params, buffer(4, size-4))
+	elseif size > 4 then
+		local n = size - 4
+		local br_parm = buffer(4, n)
+		t_captcmd:add(params, br_parm)
+		-- select sub-dissector
+		if opcode == 0xD0A0 then
+			d0a0_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+		elseif opcode == 0xE1A1 then
+			e1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
 		end
 	end
+end
+
+--
+-- Device Control Sub-Dissectors
+--
+
+-- 0xD0A0: CAPT_SET_PARM_PAGE
+local prefix = "capt_set_parm_page"
+local d0a0_paper_szid = ProtoField.uint8(prefix .. ".paper_size_id", "Paper Size ID", base.HEX)
+local d0a0_paper_type = ProtoField.uint8(prefix .. ".paper_type", "Paper Type", base.HEX)
+local d0a0_bound_a = ProtoField.uint16(prefix .. ".bound_a", "Bound A", base.DEC)
+local d0a0_bound_b = ProtoField.uint16(prefix .. ".bound_b", "Bound B", base.DEC)
+local d0a0_raster_w = ProtoField.uint16(prefix .. ".raster_width", "Raster Width (bytes)", base.DEC)
+local d0a0_raster_h = ProtoField.uint16(prefix .. ".raster_height", "Raster Height (lines)", base.DEC)
+local d0a0_paper_w = ProtoField.uint16(prefix .. ".paper_width", "Paper Width (px)", base.DEC)
+local d0a0_paper_h = ProtoField.uint16(prefix .. ".paper_height", "Paper Height (px)", base.DEC)
+local d0a0_fuser_mode = ProtoField.uint8(prefix .. ".fuser_mode", "Fuser Mode", base.HEX)
+d0a0_proto = Proto("capt_prn_d0a0", "CAPT: Page Parameters")
+d0a0_proto.fields = {
+	d0a0_paper_szid,
+	d0a0_paper_type,
+	d0a0_bound_a,
+	d0a0_bound_b,
+	d0a0_raster_w,
+	d0a0_raster_h,
+	d0a0_paper_w,
+	d0a0_paper_h,
+	d0a0_fuser_mode,
+}
+function d0a0_proto.dissector(buffer, pinfo, tree)
+	tree:add(d0a0_paper_szid, buffer(5,1))
+	tree:add(d0a0_paper_type, buffer(12,1))
+	tree:add_le(d0a0_bound_a, buffer(22,2))
+	tree:add_le(d0a0_bound_b, buffer(24,2))
+	tree:add_le(d0a0_raster_w, buffer(26,2))
+	tree:add_le(d0a0_raster_h, buffer(28,2))
+	tree:add_le(d0a0_paper_w, buffer(30,2))
+	tree:add_le(d0a0_paper_h, buffer(32,2))
+	if buffer:len() >= 34 then
+		tree:add(d0a0_fuser_mode, buffer(36,1))
+	end
+end
+
+-- E1A1: CAPT_JOB_SETUP
+-- NOTE: the name is a bit of a misnomer as this command doesn't set up
+-- a job, but it tells the printer which job it is at, and at what stage
+local prefix = 'capt_job_setup'
+local e1a1_mag_a = ProtoField.uint16(prefix .. ".magic_a", "Magic Number A", base.DEC)
+local e1a1_host_len = ProtoField.uint16(prefix .. ".hostname_length", "Hostname Length", base.DEC)
+local e1a1_usrn_len = ProtoField.uint16(prefix .. ".username_length", "Username Length", base.DEC)
+local e1a1_docn_len = ProtoField.uint16(prefix .. ".docname_length", "Document Name Length", base.DEC)
+	-- host, user, document name length suspected to be uint16
+local e1a1_mag_b = ProtoField.uint8(prefix .. ".magic_b", "Magic Number B", base.DEC)
+local e1a1_mag_c = ProtoField.uint8(prefix .. ".magic_c", "Magic Number C", base.DEC)
+local e1a1_mag_d = ProtoField.uint16(prefix .. ".magic_d", "Magic Number D", base.DEC)
+local e1a1_mag_e = ProtoField.int16(prefix .. ".magic_e", "Magic Number E", base.DEC)
+local e1a1_mag_f = ProtoField.int16(prefix .. ".magic_f", "Magic Number F", base.DEC)
+local e1a1_year = ProtoField.uint16(prefix .. ".year", "Year", base.DEC)
+local e1a1_month = ProtoField.uint8(prefix .. ".month", "Month", base.DEC)
+local e1a1_day = ProtoField.uint8(prefix .. ".day", "Day", base.DEC)
+local e1a1_hr = ProtoField.uint8(prefix .. ".hour", "UTC(?) Hour", base.DEC)
+local e1a1_min = ProtoField.uint8(prefix .. ".minute", "UTC(?) Minute", base.DEC)
+local e1a1_sec = ProtoField.uint8(prefix .. ".second", "Second", base.DEC)
+local e1a1_mag_g = ProtoField.uint8(prefix .. ".magic_g", "Magic Number G", base.DEC)
+e1a1_proto = Proto("capt_prn_e1a1", "CAPT: Job Parameters")
+e1a1_proto.fields = {
+	e1a1_mag_a,
+	e1a1_host_len,
+	e1a1_usrn_len,
+	e1a1_docn_len,
+	e1a1_mag_b,
+	e1a1_mag_c,
+	e1a1_mag_d,
+	e1a1_mag_e,
+	e1a1_mag_f,
+	e1a1_year,
+	e1a1_month,
+	e1a1_day,
+	e1a1_hr,
+	e1a1_min,
+	e1a1_sec,
+	e1a1_mag_g,
+}
+function e1a1_proto.dissector(buffer, pinfo, tree)
+	tree:add(e1a1_mag_a, buffer(4,1))
+	tree:add_le(e1a1_host_len, buffer(8,2))
+	tree:add_le(e1a1_usrn_len, buffer(10,2))
+	tree:add_le(e1a1_docn_len, buffer(12,2))
+	tree:add(e1a1_mag_b, buffer(16,1))
+	tree:add(e1a1_mag_c, buffer(17,1))
+	tree:add_le(e1a1_mag_d, buffer(18,2))
+	tree:add_le(e1a1_mag_e, buffer(20,2))
+	tree:add_le(e1a1_mag_f, buffer(22,2))
+	tree:add_le(e1a1_year, buffer(24,2))
+	tree:add(e1a1_month, buffer(26,1))
+	tree:add(e1a1_day, buffer(27,1))
+	tree:add(e1a1_hr, buffer(28,1))
+	tree:add(e1a1_min, buffer(29,1))
+	tree:add(e1a1_sec, buffer(30,1))
+	tree:add(e1a1_mag_g, buffer(31,1))
 end
 
 --
