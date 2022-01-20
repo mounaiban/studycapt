@@ -83,6 +83,7 @@ opcodes_prn = {
 	[0xE1A1] = "CAPT_JOB_SETUP",
 	[0xE1A2] = "CAPT_GPIO",
 }
+local capt_comment = ProtoField.string("capt.comment", "Comment")
 local capt_stat_cmd = ProtoField.uint16("capt.cmd","Command", base.HEX, opcodes)
 local capt_prn_cmd = ProtoField.uint16("capt.cmd","Command", base.HEX, opcodes_prn)
 local pkt_size = ProtoField.uint16("capt.packet_size", "Packet Size", base.DEC)
@@ -90,6 +91,7 @@ local params = ProtoField.new("Parameters", "capt.param_dump", ftypes.BYTES)
 	-- PROTIP: ProtoField.new puts name argument first
 local gr_cmd = ProtoField.string("capt.gcmd", "Grouped Command")
 capt_proto.fields = {
+	capt_comment,
 	capt_stat_cmd,
 	capt_prn_cmd,
 	pkt_size,
@@ -129,7 +131,7 @@ function capt_proto.dissector(buffer, pinfo, tree)
 		end
 	elseif size > 4 then
 		if size > buffer:len() then
-			t_captcmd:add("Segmented response, remaining data in next packet from this source to host")
+			t_captcmd:add(capt_comment, "See next Response Body from this source to host for remaining data")
 		else
 			local n = size - 4
 			local br_parm = buffer(4, n)
