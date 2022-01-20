@@ -30,15 +30,16 @@ HOST_PORT = 0xFFFFFFFF  -- USB host in pinfo.dst_port or pinfo.src_port
 
 -- TODO: clean up dissector code
 
--- Selection Heuristic
---
--- This classifies packets by the first two bytes of the USB bulk transfer
--- payload. If a known CAPT opcode is detected, a suitable dissector is
--- selected.
-local last_spd = {} -- last segmented packet data
-local response_headers = {} -- header packet number to header content lookup
-local response_numbers = {} -- body to header packet number lookup
+-- Dissector Preparation
+-- This function attempts to tell if a packet is a response body, a command
+-- or a response header, and prepares the dissector setup accordingly.
 
+-- Segmented Response Packet Journal
+local last_spd = {} -- last segmented packet data
+local response_headers = {} -- header: frame number->content lookup
+local response_numbers = {} -- body->header: frame number lookup
+
+-- TODO: condense this part into the main dissector
 local function detect_capt(buffer, pinfo, tree)
 	buflen = buffer:len()
 	if buflen < 1 then return false end
