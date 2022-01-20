@@ -28,24 +28,45 @@
 --
 HOST_PORT = 0xFFFFFFFF  -- USB host in pinfo.dst_port or pinfo.src_port
 
+-- TODO: clean up dissector code
+
 -- Selection Heuristic
 --
 -- This classifies packets by the first two bytes of the USB bulk transfer
 -- payload. If a known CAPT opcode is detected, a suitable dissector is
 -- selected.
+local last_spd = {} -- last segmented packet data
+local response_headers = {} -- header packet number to header content lookup
+local response_numbers = {} -- body to header packet number lookup
+
 local function detect_capt(buffer, pinfo, tree)
-	if buffer:len() < 4 then return false end -- no command is shorter than 4B
-	cmd_bytes = buffer(0,2):le_uint()
-	if opcodes[cmd_bytes] then
-		pinfo.cols['protocol'] = 'CAPT Status Monitor'
-		capt_proto.dissector(buffer, pinfo, tree)
-		return true
-	elseif opcodes_prn[cmd_bytes] then
-		pinfo.cols['info']:clear()
-		pinfo.cols['protocol'] = 'CAPT Device Control'
-		capt_proto.dissector(buffer, pinfo, tree)
-		return true
-	else return false end
+	buflen = buffer:len()
+	if buflen < 1 then return false end
+	local size = 0
+	local ocd
+	if buflen >= 4 then
+		local cmd = buffer(0,2):le_uint()
+		ocd = opcodes[cmd] or opcodes_prn[cmd]
+		size = buffer(2,2):le_uint()
+	end
+	if not ocd then
+		-- pair up response bodies with headers by packet numbers
+		test = last_spd.number < pinfo.number
+			and last_spd.src_port == pinfo.src_port
+			and last_spd.dst_port == pinfo.dst_port
+		if test then response_numbers[pinfo.number] = last_spd.number end
+	elseif buflen == 6 and size > buflen then
+		-- save response headers into lookup
+		pn = pinfo.number
+		if not response_headers[pn] then
+			last_spd.number = pn
+			last_spd.src_port = pinfo.src_port
+			last_spd.dst_port = pinfo.dst_port
+			response_headers[pn] = buffer:bytes()
+		end
+	end
+	capt_proto.dissector(buffer, pinfo, tree)
+	return true
 end
 
 --
@@ -74,6 +95,7 @@ opcodes_prn = {
 	[0xE0A2] = "CAPT_START_2",
 	[0xE0A3] = "CAPT_START_1",
 	[0xE0A4] = "CAPT_START_3", -- TODO: should this be re-ordered/renamed?
+	[0xE0A5] = "CAPT_UPLOAD_2",
 	[0xE0A7] = "CAPT_FIRE", -- start actual printing process for page?
 	[0xE0A9] = "CAPT_JOB_END",
 	[0xE1A1] = "CAPT_JOB_SETUP",
@@ -94,46 +116,82 @@ capt_proto.fields = {
 	params,
 	gr_cmd
 }
-
 function capt_proto.dissector(buffer, pinfo, tree)
-    local t_pckt = tree:add(capt_proto, buffer()) -- heading
-	local br_opcode = buffer(0, 2)
-	local br_size = buffer(2, 2)
-	local opcode = br_opcode:le_uint()
-	local size = br_size:le_uint()
+	local buffer2 = buffer
+	local rabytes = ByteArray.new()
+    local t_pckt = tree:add(capt_proto, buffer2()) -- heading
+	local br_opcode
+	local br_size
+	local opcode
+	local size
 	local t_captcmd
 	local mne
+	if buffer2:len() >= 4 then
+		-- read opcode header if plausible
+		br_opcode = buffer2(0, 2)
+		br_size = buffer2(2, 2)
+		opcode = br_opcode:le_uint()
+		size = br_size:le_uint()
+	end
 	if opcodes[opcode] then
 		mne = opcodes[opcode]
 		t_captcmd = t_pckt:add_le(capt_stat_cmd, br_opcode)
+		pinfo.cols.protocol = "CAPT Status Monitor"
 		pinfo.cols['info']:set(mne)
-	else
+		t_captcmd:add_le(pkt_size, br_size)
+	elseif opcodes_prn[opcode] then
 		mne = opcodes_prn[opcode]
+		pinfo.cols.protocol = "CAPT Device Control"
 		t_captcmd = t_pckt:add_le(capt_prn_cmd, br_opcode)
-		pinfo.cols['info']:append(mne .. ' ')
+		pinfo.cols['info']:append(string.format(" %s ", mne))
+		t_captcmd:add_le(pkt_size, br_size)
+	elseif not opcodes_prn[opcode] or opcodes[opcode] then
+		local hn = response_numbers[pinfo.number]
+		if hn then
+			local hbytes = response_headers[hn]
+			local hopcode = tonumber(hbytes:tvb():range(0,2):le_uint())
+			mne = opcodes_prn[hopcode] or opcodes[hopcode]
+			pinfo.cols.info:set(mne)
+			pinfo.cols.protocol = "CAPT Response Body"
+			t_captcmd = t_pckt:add(capt_comment, string.format("Reassembled response using header from Frame %d", hn))
+			rabytes:append(hbytes)
+			rabytes:append(buffer2:bytes())
+			buffer2 = rabytes:tvb('Response')
+			-- re-read after reassembling packet
+			br_opcode = buffer2(0, 2)
+			br_size = buffer2(2, 2)
+			size = br_size:le_uint()
+			opcode = br_opcode:le_uint()
+			t_captcmd:add_le(capt_stat_cmd, br_opcode)
+				-- TODO: some control commands have long replies too!
+			t_captcmd:add_le(pkt_size, br_size)
+		else
+			t_captcmd = t_pckt:add(capt_comment, string.format("Unsupported Opcode"))
+		end
 	end
-    t_captcmd:add_le(pkt_size, br_size)
 	if opcode == 0xD0A9 then
 		-- dissect multi-command packet
 		local i = 4
 		while i < size do
-			local n = buffer(i+2, 2):le_uint()
-			local gr_op_num = buffer(i, 2):le_uint()
+			local n = buffer2(i+2, 2):le_uint()
+			local gr_op_num = buffer2(i, 2):le_uint()
 			local gr_mne = opcodes_prn[gr_op_num]
 			local gr_op_mne = string.format("%s (0x%x)", gr_mne, gr_op_num)
-			local t_gcmd = t_captcmd:add(gr_cmd, buffer(i, n), gr_op_mne)
-			capt_proto.dissector(buffer(i, n):tvb(), pinfo, t_gcmd)
+			local t_gcmd = t_captcmd:add(gr_cmd, buffer2(i, n), gr_op_mne)
+			capt_proto.dissector(buffer2(i, n):tvb(), pinfo, t_gcmd)
 			i = i + n -- is there a Lua increment operator?
 		end
 	elseif size > 4 then
-		if size > buffer:len() then
+		if size > buffer2:len() then
 			t_captcmd:add(capt_comment, "See next Response Body from this source to host for remaining data")
 		else
 			local n = size - 4
-			local br_parm = buffer(4, n)
+			local br_parm = buffer2(4, n)
 			t_captcmd:add(params, br_parm)
 			-- select sub-dissector
-			if opcode == 0xD0A0 then
+			if opcode == 0xA1A1 then
+				a1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+			elseif opcode == 0xD0A0 then
 				d0a0_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
 			elseif opcode == 0xD0A4 then
 				d0a4_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
@@ -147,6 +205,44 @@ end
 --
 -- Device Control Sub-Dissectors
 --
+
+-- 0xA1A1: CAPT_IDENT
+local prefix = "capt_ident"
+local a1a1_mag_a = ProtoField.uint16(prefix .. ".magic_a", "Magic Number A")
+local a1a1_mag_b = ProtoField.uint16(prefix .. ".magic_b", "Magic Number B")
+local a1a1_mag_c = ProtoField.uint16(prefix .. ".magic_c", "Magic Number C")
+local a1a1_mag_d = ProtoField.uint16(prefix .. ".magic_d", "Magic Number D")
+local a1a1_mag_npt = ProtoField.uint8(prefix .. ".magic_npt", "Top Non-printable Margin(?)")
+local a1a1_mag_npb = ProtoField.uint8(prefix .. ".magic_npb", "Bottom Non-printable Margin(?)")
+local a1a1_mag_npl = ProtoField.uint8(prefix .. ".magic_npl", "Left Non-printable Margin(?)")
+local a1a1_mag_npr = ProtoField.uint8(prefix .. ".magic_npr", "Right Non-printable Margin(?)")
+local a1a1_mag_rx = ProtoField.uint16(prefix .. ".magic_rx", "X Resolution(?)")
+local a1a1_mag_ry = ProtoField.uint16(prefix .. ".magic_ry", "Y Resolution(?)")
+a1a1_proto = Proto(prefix, "CAPT: Printer Information")
+a1a1_proto.fields = {
+	a1a1_mag_a,
+	a1a1_mag_b,
+	a1a1_mag_c,
+	a1a1_mag_d,
+	a1a1_mag_npt,
+	a1a1_mag_npb,
+	a1a1_mag_npl,
+	a1a1_mag_npr,
+	a1a1_mag_rx,
+	a1a1_mag_ry
+}
+function a1a1_proto.dissector(buffer, pinfo, tree)
+	tree:add_le(a1a1_mag_a, buffer(0,2))
+	tree:add_le(a1a1_mag_b, buffer(2,2))
+	tree:add_le(a1a1_mag_c, buffer(4,2))
+	tree:add_le(a1a1_mag_d, buffer(6,2))
+	tree:add_le(a1a1_mag_npt, buffer(40,1))
+	tree:add_le(a1a1_mag_npb, buffer(41,1))
+	tree:add_le(a1a1_mag_npl, buffer(42,1))
+	tree:add_le(a1a1_mag_npr, buffer(43,1))
+	tree:add_le(a1a1_mag_rx, buffer(44,2))
+	tree:add_le(a1a1_mag_ry, buffer(46,2))
+end
 
 -- 0xD0A0: CAPT_SET_PARM_PAGE
 local prefix = "capt_set_parm_page"

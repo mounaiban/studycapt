@@ -7,7 +7,7 @@ Canon laser printers.
 
 For now, there's just the following items:
 
-### capt.lua (CAPT Dissector for Wireshark)
+### capt.lua (Wireshark CAPT Dissector)
 A Lua dissector which annotates CAPT commands in packet captures in Wireshark.
 
 To use the dissector for a single Wireshark session, run this command in a directory containing ``capt.lua``:
@@ -15,7 +15,7 @@ To use the dissector for a single Wireshark session, run this command in a direc
 $ wireshark -X lua_script:capt.lua
 ```
 
-The dissector is currently only able to dissect inital packets over USB. Follow-up packets to responses seven bytes or longer are not yet dissected. CAPT over Ethernet is currently not supported.
+The dissector is currently only able dissect packets over USB. CAPT over Ethernet and parallel printer port/IEEE1284 are currently not supported.
 
 ### find\_msb()
 An experiment in improving ``find_msb()``, a function in ``hiscoa-compress.c`` that finds the position of an integer's highest bit, similar to Python's ``int.bit_length()``.
