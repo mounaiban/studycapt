@@ -23,14 +23,10 @@
 -- Opcode mnemonics by Alexey Galakhov and @missla. Adapted from SPECS and
 -- src/capt-command.h in the captdriver tree.
 
--- NOTE: this dissector is still only able to dissect the initial packets
--- in a command response. Follow-up response packets (containing data after
--- the 6th byte) and constituent commands sent by CAPT_SET_PARMS are is still
--- not dissected.
-
 --
 -- Main Dissectors
 --
+HOST_PORT = 0xFFFFFFFF  -- USB host in pinfo.dst_port or pinfo.src_port
 
 -- Selection Heuristic
 --
@@ -217,6 +213,7 @@ end
 -- NOTE: the name is a bit of a misnomer as this command doesn't set up
 -- a job, but it tells the printer which job it is at, and at what stage
 local prefix = 'capt_job_setup'
+local e1a1_resp = ProtoField.uint16(prefix .. ".response_code", "Response Code")
 local e1a1_mag_a = ProtoField.uint16(prefix .. ".magic_a", "Magic Number A", base.DEC)
 local e1a1_host_len = ProtoField.uint16(prefix .. ".hostname_length", "Hostname Length", base.DEC)
 local e1a1_usrn_len = ProtoField.uint16(prefix .. ".username_length", "Username Length", base.DEC)
@@ -236,6 +233,7 @@ local e1a1_sec = ProtoField.uint8(prefix .. ".second", "Second", base.DEC)
 local e1a1_mag_g = ProtoField.uint8(prefix .. ".magic_g", "Magic Number G", base.DEC)
 e1a1_proto = Proto("capt_prn_e1a1", "CAPT: Job Parameters")
 e1a1_proto.fields = {
+	e1a1_resp,
 	e1a1_mag_a,
 	e1a1_host_len,
 	e1a1_usrn_len,
@@ -254,22 +252,28 @@ e1a1_proto.fields = {
 	e1a1_mag_g,
 }
 function e1a1_proto.dissector(buffer, pinfo, tree)
-	tree:add(e1a1_mag_a, buffer(4,1))
-	tree:add_le(e1a1_host_len, buffer(8,2))
-	tree:add_le(e1a1_usrn_len, buffer(10,2))
-	tree:add_le(e1a1_docn_len, buffer(12,2))
-	tree:add(e1a1_mag_b, buffer(16,1))
-	tree:add(e1a1_mag_c, buffer(17,1))
-	tree:add_le(e1a1_mag_d, buffer(18,2))
-	tree:add_le(e1a1_mag_e, buffer(20,2))
-	tree:add_le(e1a1_mag_f, buffer(22,2))
-	tree:add_le(e1a1_year, buffer(24,2))
-	tree:add(e1a1_month, buffer(26,1))
-	tree:add(e1a1_day, buffer(27,1))
-	tree:add(e1a1_hr, buffer(28,1))
-	tree:add(e1a1_min, buffer(29,1))
-	tree:add(e1a1_sec, buffer(30,1))
-	tree:add(e1a1_mag_g, buffer(31,1))
+	if pinfo.dst_port == HOST_PORT then
+		tree:add_le(e1a1_resp, buffer(0,2))
+		return true
+	else
+		tree:add(e1a1_mag_a, buffer(4,1))
+		tree:add_le(e1a1_host_len, buffer(8,2))
+		tree:add_le(e1a1_usrn_len, buffer(10,2))
+		tree:add_le(e1a1_docn_len, buffer(12,2))
+		tree:add(e1a1_mag_b, buffer(16,1))
+		tree:add(e1a1_mag_c, buffer(17,1))
+		tree:add_le(e1a1_mag_d, buffer(18,2))
+		tree:add_le(e1a1_mag_e, buffer(20,2))
+		tree:add_le(e1a1_mag_f, buffer(22,2))
+		tree:add_le(e1a1_year, buffer(24,2))
+		tree:add(e1a1_month, buffer(26,1))
+		tree:add(e1a1_day, buffer(27,1))
+		tree:add(e1a1_hr, buffer(28,1))
+		tree:add(e1a1_min, buffer(29,1))
+		tree:add(e1a1_sec, buffer(30,1))
+		tree:add(e1a1_mag_g, buffer(31,1))
+		return true
+	end
 end
 
 --
