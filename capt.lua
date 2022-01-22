@@ -1,5 +1,7 @@
 -- Canon Advanced Printing Technology (CAPT) Protocol Dissector
--- For dissecting USB traffic from select Canon laser printer devices
+--
+-- For use with Wireshark (or any compatible product)
+-- Dissects USB traffic to and from select Canon laser printer devices
 --
 -- Copyright (C) 2022 Moses Chong
 --
@@ -24,55 +26,18 @@
 -- src/capt-command.h in the captdriver tree.
 
 --
--- Main Dissectors
+-- Main Dissector
 --
 HOST_PORT = 0xFFFFFFFF  -- USB host in pinfo.dst_port or pinfo.src_port
-
--- TODO: clean up dissector code
-
--- Dissector Preparation
--- This function attempts to tell if a packet is a response body, a command
--- or a response header, and prepares the dissector setup accordingly.
+TYPE_NOT_OPCODE = 0x0
+TYPE_IS_OPCODE = 0x01
+TYPE_IS_CONTROL = 0x02
 
 -- Segmented Response Packet Journal
 local last_spd = {} -- last segmented packet data
 local response_headers = {} -- header: frame number->content lookup
 local response_numbers = {} -- body->header: frame number lookup
 
--- TODO: condense this part into the main dissector
-local function detect_capt(buffer, pinfo, tree)
-	buflen = buffer:len()
-	if buflen < 1 then return false end
-	local size = 0
-	local ocd
-	if buflen >= 4 then
-		local cmd = buffer(0,2):le_uint()
-		ocd = opcodes[cmd] or opcodes_prn[cmd]
-		size = buffer(2,2):le_uint()
-	end
-	if not ocd then
-		-- pair up response bodies with headers by packet numbers
-		test = last_spd.number < pinfo.number
-			and last_spd.src_port == pinfo.src_port
-			and last_spd.dst_port == pinfo.dst_port
-		if test then response_numbers[pinfo.number] = last_spd.number end
-	elseif buflen == 6 and size > buflen then
-		-- save response headers into lookup
-		pn = pinfo.number
-		if not response_headers[pn] then
-			last_spd.number = pn
-			last_spd.src_port = pinfo.src_port
-			last_spd.dst_port = pinfo.dst_port
-			response_headers[pn] = buffer:bytes()
-		end
-	end
-	capt_proto.dissector(buffer, pinfo, tree)
-	return true
-end
-
---
--- Main Dissector
---
 -- TODO: make protocol names look prettier in WS
 capt_proto = Proto("capt", "Canon Advanced Printing Technology")
 opcodes = {
@@ -117,59 +82,91 @@ capt_proto.fields = {
 	params,
 	gr_cmd
 }
+
+local function capt_opcode_type(opcode)
+	if opcodes_prn[opcode] then
+		return bit32.bor(TYPE_IS_OPCODE, TYPE_IS_CONTROL)
+	elseif opcodes[opcode] then
+		return bit32.bor(TYPE_IS_OPCODE)
+	end
+	return TYPE_NOT_OPCODE
+end
+
 function capt_proto.dissector(buffer, pinfo, tree)
 	local buffer2 = buffer
-	local rabytes = ByteArray.new()
-    local t_pckt = tree:add(capt_proto, buffer2()) -- heading
+	local buflen = buffer2:len()
+    local t_pckt = tree:add(capt_proto, buffer2()) --packet details tree heading
+	local t_captcmd
 	local br_opcode
 	local br_size
 	local opcode
 	local size
-	local t_captcmd
-	local mne
-	if buffer2:len() >= 4 then
-		-- read opcode header if plausible
+	local optype = TYPE_NOT_OPCODE
+	-- detect opcode
+	if buflen >= 2 then
 		br_opcode = buffer2(0, 2)
-		br_size = buffer2(2, 2)
 		opcode = br_opcode:le_uint()
-		size = br_size:le_uint()
+		optype = capt_opcode_type(opcode)
 	end
-	if opcodes[opcode] then
-		mne = opcodes[opcode]
-		t_captcmd = t_pckt:add_le(capt_stat_cmd, br_opcode)
-		pinfo.cols.protocol = "CAPT Status Monitor"
-		pinfo.cols['info']:set(mne)
-		t_captcmd:add_le(pkt_size, br_size)
-	elseif opcodes_prn[opcode] then
-		mne = opcodes_prn[opcode]
-		pinfo.cols.protocol = "CAPT Device Control"
-		t_captcmd = t_pckt:add_le(capt_prn_cmd, br_opcode)
-		pinfo.cols['info']:append(string.format(" %s ", mne))
-		t_captcmd:add_le(pkt_size, br_size)
-	elseif not opcodes_prn[opcode] or opcodes[opcode] then
+	-- detect header and segmented packets
+	if buflen >= 4 then
+		br_size = buffer2(2, 2)
+		size = br_size:le_uint()
+		-- save header for segemented packets on first visit
+		if bit32.btest(optype, TYPE_IS_OPCODE) and size > buflen then
+			local pn = pinfo.number
+			if not response_headers[pn] then
+				last_spd.number = pn
+				last_spd.src_port = pinfo.src_port
+				last_spd.dst_port = pinfo.dst_port
+				response_headers[pn] = buffer2:bytes()
+			end
+		end
+	end
+	-- detect segmented response bodies
+	if optype == TYPE_NOT_OPCODE then
 		local hn = response_numbers[pinfo.number]
+		-- record first visit to response body
+		if not hn then
+			local test = last_spd.number < pinfo.number
+				and last_spd.src_port == pinfo.src_port
+				and last_spd.dst_port == pinfo.dst_port
+			if test then response_numbers[pinfo.number] = last_spd.number end
+			hn = response_numbers[pinfo.number]
+		end
+		-- attempt to reassemble packet if 'matching' header found
 		if hn then
 			local hbytes = response_headers[hn]
-			local hopcode = tonumber(hbytes:tvb():range(0,2):le_uint())
-			mne = opcodes_prn[hopcode] or opcodes[hopcode]
-			pinfo.cols.info:set(mne)
-			pinfo.cols.protocol = "CAPT Response Body"
+			local rabytes = ByteArray.new()
 			t_captcmd = t_pckt:add(capt_comment, string.format("Reassembled response using header from Frame %d", hn))
 			rabytes:append(hbytes)
 			rabytes:append(buffer2:bytes())
+			-- transfer buffer, detect opcode and size
 			buffer2 = rabytes:tvb('Response')
-			-- re-read after reassembling packet
 			br_opcode = buffer2(0, 2)
 			br_size = buffer2(2, 2)
 			size = br_size:le_uint()
 			opcode = br_opcode:le_uint()
-			t_captcmd:add_le(capt_stat_cmd, br_opcode)
-				-- TODO: some control commands have long replies too!
-			t_captcmd:add_le(pkt_size, br_size)
-		else
-			t_captcmd = t_pckt:add(capt_comment, string.format("Unsupported Opcode"))
+			optype = capt_opcode_type(opcode)
 		end
 	end
+	if bit32.btest(optype, TYPE_IS_OPCODE) then
+		local mne = opcodes_prn[opcode] or opcodes[opcode]
+		if bit32.btest(optype, TYPE_IS_CONTROL) then
+			pinfo.cols.protocol = "CAPT Device Control"
+			t_captcmd = t_pckt:add_le(capt_prn_cmd, br_opcode)
+			pinfo.cols['info']:append(string.format(" %s ", mne))
+		else
+			pinfo.cols.protocol = "CAPT Status Monitor"
+			t_captcmd = t_pckt:add_le(capt_stat_cmd, br_opcode)
+			pinfo.cols.info:set(mne)
+		end
+		t_captcmd:add_le(pkt_size, br_size)
+	else
+		t_captcmd = t_pckt:add(capt_comment, string.format("Unknown Opcode"))
+		return
+	end
+	-- dissect!
 	if opcode == 0xD0A9 then
 		-- dissect multi-command packet
 		local i = 4
@@ -374,4 +371,5 @@ function e1a1_proto.dissector(buffer, pinfo, tree)
 end
 
 --
-capt_proto:register_heuristic("usb.bulk", detect_capt)
+local dt_usb = DissectorTable.get("usb.bulk")
+dt_usb:add(0xffff, capt_proto)
