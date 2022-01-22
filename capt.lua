@@ -120,12 +120,14 @@ function capt_proto.dissector(buffer, pinfo, tree)
 		size = br_size:le_uint()
 		-- save header for segemented packets on first visit
 		if bit32.btest(optype, TYPE_IS_OPCODE) and size > buflen then
-			local pn = pinfo.number
-			if not response_headers[pn] then
-				last_spd.number = pn
-				last_spd.src_port = pinfo.src_port
-				last_spd.dst_port = pinfo.dst_port
-				response_headers[pn] = buffer2:bytes()
+			do
+				local pn = pinfo.number
+				if not response_headers[pn] then
+					last_spd.number = pn
+					last_spd.src_port = pinfo.src_port
+					last_spd.dst_port = pinfo.dst_port
+					response_headers[pn] = buffer2:bytes()
+				end
 			end
 		end
 	end
@@ -134,32 +136,36 @@ function capt_proto.dissector(buffer, pinfo, tree)
 		local hn = response_pairs[pinfo.number]
 		-- pair response body and header on first visit to packet
 		if not hn then
-			local test = last_spd.number or pinfo.number+1 < pinfo.number
-				-- PROTIP: a nil last_spd.number resolves to a number always
-				-- higher than pinfo.number as a hack to fail this test
-				and last_spd.src_port == pinfo.src_port
-				and last_spd.dst_port == pinfo.dst_port
-			if test then
-				response_pairs[pinfo.number] = last_spd.number
-				--response_pairs[last_spd.number] = pinfo.number
-				-- TODO: Find out why back-linking doesn't work
-				last_spd = {} -- reset to prevent spurious pairings
-				return
+			do
+				local test = last_spd.number or pinfo.number+1 < pinfo.number
+					-- PROTIP: a nil last_spd.number resolves to a number always
+					-- higher than pinfo.number as a hack to fail this test
+					and last_spd.src_port == pinfo.src_port
+					and last_spd.dst_port == pinfo.dst_port
+				if test then
+					response_pairs[pinfo.number] = last_spd.number
+					-- response_pairs[last_spd.number] = pinfo.number
+					-- TODO: Find out why back-linking doesn't work
+					last_spd = {} -- reset to prevent spurious pairings
+					return
+				end
 			end
 		-- attempt to reassemble packet if 'matching' header found
 		elseif hn then
-			local hbytes = response_headers[hn]
-			local rabytes = ByteArray.new()
-			t_captcmd = t_pckt:add(capt_header_pn, hn)
-			rabytes:append(hbytes)
-			rabytes:append(buffer2:bytes())
-			-- transfer buffer, detect opcode and size
-			buffer2 = rabytes:tvb('Response')
-			br_opcode = buffer2(0, 2)
-			br_size = buffer2(2, 2)
-			size = br_size:le_uint()
-			opcode = br_opcode:le_uint()
-			optype = capt_opcode_type(opcode)
+			do
+				local hbytes = response_headers[hn]
+				local rabytes = ByteArray.new()
+				t_captcmd = t_pckt:add(capt_header_pn, hn)
+				rabytes:append(hbytes)
+				rabytes:append(buffer2:bytes())
+				-- transfer buffer, detect opcode and size
+				buffer2 = rabytes:tvb('Response')
+				br_opcode = buffer2(0, 2)
+				br_size = buffer2(2, 2)
+				size = br_size:le_uint()
+				opcode = br_opcode:le_uint()
+				optype = capt_opcode_type(opcode)
+			end
 		end
 	end
 	if bit32.btest(optype, TYPE_IS_OPCODE) then
@@ -193,29 +199,31 @@ function capt_proto.dissector(buffer, pinfo, tree)
 		end
 	elseif size > 4 then
 		-- single-command packet
-		if size > buffer2:len() then do
-			local rn = response_pairs[pinfo.number]
-			if rn then
-				t_captcmd:add(capt_body_pn, rn)
-			else
-				t_captcmd:add(capt_comment, "See next Response Body from this source to host for remaining data")
+		if size > buffer2:len() then
+			do
+				local rn = response_pairs[pinfo.number]
+				if rn then
+					t_captcmd:add(capt_body_pn, rn)
+				else
+					t_captcmd:add(capt_comment, "See next Response Body from this source to host for remaining data")
+				end
 			end
+		else
+			do
+				local n = size - 4
+				local br_parm = buffer2(4, n)
+				t_captcmd:add(params, br_parm)
+				-- select sub-dissector
+				if opcode == 0xA1A1 then
+					a1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+				elseif opcode == 0xD0A0 then
+					d0a0_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+				elseif opcode == 0xD0A4 then
+					d0a4_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+				elseif opcode == 0xE1A1 then
+					e1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+				end
 			end
-		else do
-			local n = size - 4
-			local br_parm = buffer2(4, n)
-			t_captcmd:add(params, br_parm)
-			-- select sub-dissector
-			if opcode == 0xA1A1 then
-				a1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
-			elseif opcode == 0xD0A0 then
-				d0a0_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
-			elseif opcode == 0xD0A4 then
-				d0a4_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
-			elseif opcode == 0xE1A1 then
-				e1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
-			end
-		end
 		end
 	end
 end
