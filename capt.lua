@@ -209,20 +209,20 @@ function capt_proto.dissector(buffer, pinfo, tree)
 				end
 			end
 		else
-			do
-				local n = size - 4
-				local br_parm = buffer2(4, n)
-				t_captcmd:add(params, br_parm)
-				-- select sub-dissector
-				if opcode == 0xA1A1 then
-					a1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
-				elseif opcode == 0xD0A0 then
-					d0a0_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
-				elseif opcode == 0xD0A4 then
-					d0a4_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
-				elseif opcode == 0xE1A1 then
-					e1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
-				end
+			local n = size - 4
+			local br_parm = buffer2(4, n)
+			t_captcmd:add(params, br_parm)
+			-- select sub-dissector
+			if opcode == 0xA0A1 or opcode == 0xA0A8 or opcode == 0xE0A0 then
+				capt_stat_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+			elseif opcode == 0xA1A1 then
+				a1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+			elseif opcode == 0xD0A0 then
+				d0a0_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+			elseif opcode == 0xD0A4 then
+				d0a4_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+			elseif opcode == 0xE1A1 then
+				e1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
 			end
 		end
 	end
@@ -232,16 +232,32 @@ end
 -- Device Control Sub-Dissectors
 --
 
+-- 0xA0A1, 0xA0A8, 0xE0A0: Status Checks
+-- Just show the first six bytes in Packet List info column for now...
+capt_stat_proto = Proto("capt_xstatus", "CAPT Status Check")
+function capt_stat_proto.dissector(buffer, pinfo, tree) do
+	local dumphex = buffer(0,6):bytes():tohex(false, ' ')
+	pinfo.cols.info:append(string.format(": %s", dumphex))
+end end
+
 -- 0xA1A1: CAPT_IDENT
+-- Device automagic configuration data, perhaps for use with the Axis 1650
+-- network adapter and the NetSpot Installer software.
+--
+-- Note: The paper specs appear to be in 1/10ths mm, apparently for fixed
+-- point arithmetic (to avoid floats when HF is not available)
 local prefix = "capt_ident"
 local a1a1_mag_a = ProtoField.uint16(prefix .. ".magic_a", "Magic Number A")
 local a1a1_mag_b = ProtoField.uint16(prefix .. ".magic_b", "Magic Number B")
 local a1a1_mag_c = ProtoField.uint16(prefix .. ".magic_c", "Magic Number C")
 local a1a1_mag_d = ProtoField.uint16(prefix .. ".magic_d", "Magic Number D")
-local a1a1_mag_npt = ProtoField.uint8(prefix .. ".magic_npt", "Top Non-printable Margin(?)")
-local a1a1_mag_npb = ProtoField.uint8(prefix .. ".magic_npb", "Bottom Non-printable Margin(?)")
-local a1a1_mag_npl = ProtoField.uint8(prefix .. ".magic_npl", "Left Non-printable Margin(?)")
-local a1a1_mag_npr = ProtoField.uint8(prefix .. ".magic_npr", "Right Non-printable Margin(?)")
+local a1a1_mag_wmax = ProtoField.uint16(prefix .. ".magic_wmax", "Maximum Paper Width (x0.1 mm)")
+local a1a1_mag_npt = ProtoField.uint8(prefix .. ".magic_npt", "Top Non-printable Margin (x0.1mm)")
+local a1a1_mag_hmin = ProtoField.uint16(prefix .. ".magic_hmin", "Minimum Paper Height (x0.1 mm)")
+local a1a1_mag_hmax = ProtoField.uint16(prefix .. ".magic_hmax", "Maximum Paper Height (x0.1 mm)")
+local a1a1_mag_npb = ProtoField.uint8(prefix .. ".magic_npb", "Bottom Non-printable Margin(x0.1 mm)")
+local a1a1_mag_npl = ProtoField.uint8(prefix .. ".magic_npl", "Left Non-printable Margin(x0.1 mm)")
+local a1a1_mag_npr = ProtoField.uint8(prefix .. ".magic_npr", "Right Non-printable Margin (x0.1 mm)")
 local a1a1_mag_rx = ProtoField.uint16(prefix .. ".magic_rx", "X Resolution(?)")
 local a1a1_mag_ry = ProtoField.uint16(prefix .. ".magic_ry", "Y Resolution(?)")
 a1a1_proto = Proto(prefix, "CAPT: Printer Information")
@@ -250,6 +266,9 @@ a1a1_proto.fields = {
 	a1a1_mag_b,
 	a1a1_mag_c,
 	a1a1_mag_d,
+	a1a1_mag_wmax,
+	a1a1_mag_hmin,
+	a1a1_mag_hmax,
 	a1a1_mag_npt,
 	a1a1_mag_npb,
 	a1a1_mag_npl,
@@ -262,6 +281,10 @@ function a1a1_proto.dissector(buffer, pinfo, tree)
 	tree:add_le(a1a1_mag_b, buffer(2,2))
 	tree:add_le(a1a1_mag_c, buffer(4,2))
 	tree:add_le(a1a1_mag_d, buffer(6,2))
+	tree:add_le(a1a1_mag_wmax, buffer(20,2))
+	tree:add_le(a1a1_mag_hmax, buffer(24,2))
+	tree:add_le(a1a1_mag_hmin, buffer(32,2))
+	tree:add_le(a1a1_mag_hmin, buffer(36,2))
 	tree:add_le(a1a1_mag_npt, buffer(40,1))
 	tree:add_le(a1a1_mag_npb, buffer(41,1))
 	tree:add_le(a1a1_mag_npl, buffer(42,1))
