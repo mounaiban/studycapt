@@ -36,7 +36,7 @@ TYPE_IS_CONTROL = 0x02
 -- Segmented Response Packet Journal
 local last_spd = {} -- last segmented packet data
 local response_headers = {} -- header: frame number->content lookup
-local response_numbers = {} -- body->header: frame number lookup
+local response_pairs = {} -- body<->header: frame number lookup
 
 -- TODO: make protocol names look prettier in WS
 capt_proto = Proto("capt", "Canon Advanced Printing Technology")
@@ -73,12 +73,16 @@ for k, v in pairs(opcodes_stat) do opcodes[k] = v end
 for k, v in pairs(opcodes_prn) do opcodes[k] = v end
 
 local capt_comment = ProtoField.string("capt.comment", "Comment")
+local capt_header_pn = ProtoField.framenum("capt.header_frame", "Response Header in Frame")
+local capt_body_pn = ProtoField.framenum("capt.body_frame", "Response Body in Frame")
 local capt_cmd = ProtoField.uint16("capt.cmd","Command", base.HEX, opcodes)
 local pkt_size = ProtoField.uint16("capt.packet_size", "Packet Size", base.DEC)
 local params = ProtoField.new("Parameters", "capt.param_dump", ftypes.BYTES)
 	-- PROTIP: ProtoField.new puts name argument first
 capt_proto.fields = {
 	capt_comment,
+	capt_header_pn,
+	capt_body_pn,
 	capt_cmd,
 	pkt_size,
 	params,
@@ -127,20 +131,26 @@ function capt_proto.dissector(buffer, pinfo, tree)
 	end
 	-- detect segmented response bodies
 	if optype == TYPE_NOT_OPCODE then
-		local hn = response_numbers[pinfo.number]
-		-- record first visit to response body
+		local hn = response_pairs[pinfo.number]
+		-- pair response body and header on first visit to packet
 		if not hn then
-			local test = last_spd.number < pinfo.number
+			local test = last_spd.number or pinfo.number+1 < pinfo.number
+				-- PROTIP: a nil last_spd.number resolves to a number always
+				-- higher than pinfo.number as a hack to fail this test
 				and last_spd.src_port == pinfo.src_port
 				and last_spd.dst_port == pinfo.dst_port
-			if test then response_numbers[pinfo.number] = last_spd.number end
-			hn = response_numbers[pinfo.number]
-		end
+			if test then
+				response_pairs[pinfo.number] = last_spd.number
+				--response_pairs[last_spd.number] = pinfo.number
+				-- TODO: Find out why back-linking doesn't work
+				last_spd = {} -- reset to prevent spurious pairings
+				return
+			end
 		-- attempt to reassemble packet if 'matching' header found
-		if hn then
+		elseif hn then
 			local hbytes = response_headers[hn]
 			local rabytes = ByteArray.new()
-			t_captcmd = t_pckt:add(capt_comment, string.format("Reassembled response using header from Frame %d", hn))
+			t_captcmd = t_pckt:add(capt_header_pn, hn)
 			rabytes:append(hbytes)
 			rabytes:append(buffer2:bytes())
 			-- transfer buffer, detect opcode and size
@@ -183,9 +193,15 @@ function capt_proto.dissector(buffer, pinfo, tree)
 		end
 	elseif size > 4 then
 		-- single-command packet
-		if size > buffer2:len() then
-			t_captcmd:add(capt_comment, "See next Response Body from this source to host for remaining data")
-		else
+		if size > buffer2:len() then do
+			local rn = response_pairs[pinfo.number]
+			if rn then
+				t_captcmd:add(capt_body_pn, rn)
+			else
+				t_captcmd:add(capt_comment, "See next Response Body from this source to host for remaining data")
+			end
+			end
+		else do
 			local n = size - 4
 			local br_parm = buffer2(4, n)
 			t_captcmd:add(params, br_parm)
@@ -199,6 +215,7 @@ function capt_proto.dissector(buffer, pinfo, tree)
 			elseif opcode == 0xE1A1 then
 				e1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
 			end
+		end
 		end
 	end
 end
