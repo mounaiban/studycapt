@@ -40,7 +40,7 @@ local response_numbers = {} -- body->header: frame number lookup
 
 -- TODO: make protocol names look prettier in WS
 capt_proto = Proto("capt", "Canon Advanced Printing Technology")
-opcodes = {
+opcodes_stat = {
     [0xA0A1] = "CAPT_CHKJOBSTAT",
     [0xA0A8] = "CAPT_XSTATUS",
     [0xA1A0] = "CAPT_IEEE_IDENT",
@@ -67,20 +67,21 @@ opcodes_prn = {
 	[0xE1A1] = "CAPT_JOB_SETUP",
 	[0xE1A2] = "CAPT_GPIO",
 }
+-- init combined opcodes table (inefficient but acceptable due to small size)
+opcodes = {}
+for k, v in pairs(opcodes_stat) do opcodes[k] = v end
+for k, v in pairs(opcodes_prn) do opcodes[k] = v end
+
 local capt_comment = ProtoField.string("capt.comment", "Comment")
-local capt_stat_cmd = ProtoField.uint16("capt.cmd","Command", base.HEX, opcodes)
-local capt_prn_cmd = ProtoField.uint16("capt.cmd","Command", base.HEX, opcodes_prn)
+local capt_cmd = ProtoField.uint16("capt.cmd","Command", base.HEX, opcodes)
 local pkt_size = ProtoField.uint16("capt.packet_size", "Packet Size", base.DEC)
 local params = ProtoField.new("Parameters", "capt.param_dump", ftypes.BYTES)
 	-- PROTIP: ProtoField.new puts name argument first
-local gr_cmd = ProtoField.string("capt.gcmd", "Grouped Command")
 capt_proto.fields = {
 	capt_comment,
-	capt_stat_cmd,
-	capt_prn_cmd,
+	capt_cmd,
 	pkt_size,
 	params,
-	gr_cmd
 }
 
 local function capt_opcode_type(opcode)
@@ -99,9 +100,10 @@ function capt_proto.dissector(buffer, pinfo, tree)
 	local t_captcmd
 	local br_opcode
 	local br_size
+	local mne
 	local opcode
-	local size
 	local optype = TYPE_NOT_OPCODE
+	local size
 	-- detect opcode
 	if buflen >= 2 then
 		br_opcode = buffer2(0, 2)
@@ -151,14 +153,14 @@ function capt_proto.dissector(buffer, pinfo, tree)
 		end
 	end
 	if bit32.btest(optype, TYPE_IS_OPCODE) then
-		local mne = opcodes_prn[opcode] or opcodes[opcode]
+		mne = opcodes_prn[opcode] or opcodes[opcode]
 		if bit32.btest(optype, TYPE_IS_CONTROL) then
 			pinfo.cols.protocol = "CAPT Device Control"
-			t_captcmd = t_pckt:add_le(capt_prn_cmd, br_opcode)
-			pinfo.cols['info']:append(string.format(" %s ", mne))
+			t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
+			pinfo.cols.info:append(string.format(" %s ", mne))
 		else
 			pinfo.cols.protocol = "CAPT Status Monitor"
-			t_captcmd = t_pckt:add_le(capt_stat_cmd, br_opcode)
+			t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
 			pinfo.cols.info:set(mne)
 		end
 		t_captcmd:add_le(pkt_size, br_size)
@@ -168,18 +170,19 @@ function capt_proto.dissector(buffer, pinfo, tree)
 	end
 	-- dissect!
 	if opcode == 0xD0A9 then
-		-- dissect multi-command packet
+		-- multi-command packet
+		pinfo.cols.info:set(string.format("%s:", mne))
 		local i = 4
 		while i < size do
 			local n = buffer2(i+2, 2):le_uint()
-			local gr_op_num = buffer2(i, 2):le_uint()
-			local gr_mne = opcodes_prn[gr_op_num]
-			local gr_op_mne = string.format("%s (0x%x)", gr_mne, gr_op_num)
-			local t_gcmd = t_captcmd:add(gr_cmd, buffer2(i, n), gr_op_mne)
+			local gr_opcode = buffer2(i, 2):le_uint()
+			local gr_mne = opcodes_prn[gr_opcode]
+			local t_gcmd = t_captcmd:add_le(capt_cmd, buffer2(i, 2))
 			capt_proto.dissector(buffer2(i, n):tvb(), pinfo, t_gcmd)
 			i = i + n -- is there a Lua increment operator?
 		end
 	elseif size > 4 then
+		-- single-command packet
 		if size > buffer2:len() then
 			t_captcmd:add(capt_comment, "See next Response Body from this source to host for remaining data")
 		else
