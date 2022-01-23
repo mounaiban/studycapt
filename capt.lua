@@ -425,6 +425,28 @@ function e1a1_proto.dissector(buffer, pinfo, tree)
 	end
 end
 
---
+-- dissector registration
+local dt_usb_product = DissectorTable.get("usb.product")
+dt_usb_product:add(0x04a9260a, capt_proto) -- LBP810
+dt_usb_product:add(0x04a92676, capt_proto) -- LBP2900
+dt_usb_product:add(0x04a9266a, capt_proto) -- LBP3000
+dt_usb_product:add(0x04a926da, capt_proto) -- LBP3010/3018/3050
+dt_usb_product:add(0x04a926db, capt_proto) -- LBP3100/3108/3150
+dt_usb_product:add(0x04a926b9, capt_proto) -- LBP3310
+--dt_usb_product:add(YOUR_DEVICE_NUMBER, capt_proto)
+
+-- PROTIP: If the number for your device is missing from above, you may
+-- need to add it here to use this dissector.
+-- If on Linux or BSD, obtain your number from running the lsusb command.
+-- Copy the ID, remove the colon and add '0x' in front of it.
+
+-- Using macOS? Try System Report in About This Mac. Goto Hardware > USB,
+-- and find your device there... Combine your vendor ID and device ID
+-- (in that order) into one 8-digit hex number, add the 0x in front.
+
+-- You can also remove any devices that you don't have or are not using.
+
 local dt_usb = DissectorTable.get("usb.bulk")
+dt_usb:add(0x0, capt_proto)
+dt_usb:add(0xff, capt_proto)
 dt_usb:add(0xffff, capt_proto)
