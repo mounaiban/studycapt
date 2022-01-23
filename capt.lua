@@ -108,29 +108,15 @@ function capt_proto.dissector(buffer, pinfo, tree)
 	local opcode
 	local optype = TYPE_NOT_OPCODE
 	local size
+
+	-- classify...
 	-- detect opcode
 	if buflen >= 2 then
 		br_opcode = buffer2(0, 2)
 		opcode = br_opcode:le_uint()
 		optype = capt_opcode_type(opcode)
 	end
-	-- detect header and segmented packets
-	if buflen >= 4 then
-		br_size = buffer2(2, 2)
-		size = br_size:le_uint()
-		-- save header for segemented packets on first visit
-		if bit32.btest(optype, TYPE_IS_OPCODE) and size > buflen then
-			do
-				local pn = pinfo.number
-				if not response_headers[pn] then
-					last_spd.number = pn
-					last_spd.src_port = pinfo.src_port
-					last_spd.dst_port = pinfo.dst_port
-					response_headers[pn] = buffer2:bytes()
-				end
-			end
-		end
-	end
+
 	-- detect segmented response bodies
 	if optype == TYPE_NOT_OPCODE then
 		local hn = response_pairs[pinfo.number]
@@ -148,17 +134,23 @@ function capt_proto.dissector(buffer, pinfo, tree)
 					-- TODO: Find out why back-linking doesn't work
 					last_spd = {} -- reset to prevent spurious pairings
 					return
+				else
+					-- no last known header: assume unknown opcode
+					pinfo.cols.protocol:set("CAPT")
+					pinfo.cols.info:set(string.format("Unknown opcode %x", opcode))
+					t_captcmd = t_pckt:add(capt_comment, string.format("???"))
+					return
 				end
 			end
-		-- attempt to reassemble packet if 'matching' header found
-		elseif hn then
+		else
+			-- attempt to reassemble packet if 'matching' header found
 			do
 				local hbytes = response_headers[hn]
 				local rabytes = ByteArray.new()
 				t_captcmd = t_pckt:add(capt_header_pn, hn)
 				rabytes:append(hbytes)
 				rabytes:append(buffer2:bytes())
-				-- transfer buffer, detect opcode and size
+				-- switch buffers, re-detect opcode and size
 				buffer2 = rabytes:tvb('Response')
 				br_opcode = buffer2(0, 2)
 				br_size = buffer2(2, 2)
@@ -167,23 +159,35 @@ function capt_proto.dissector(buffer, pinfo, tree)
 				optype = capt_opcode_type(opcode)
 			end
 		end
-	end
-	if bit32.btest(optype, TYPE_IS_OPCODE) then
-		mne = opcodes_prn[opcode] or opcodes[opcode]
-		if bit32.btest(optype, TYPE_IS_CONTROL) then
-			pinfo.cols.protocol = "CAPT Device Control"
+	elseif buflen >= 4 then
+		-- handle packets with header
+		br_size = buffer2(2, 2)
+		size = br_size:le_uint()
+		if bit32.btest(optype, TYPE_IS_OPCODE) then
+			-- save headers of segmented packets on first visit
+			if size > buflen then
+				local pn = pinfo.number
+				if not response_headers[pn] then
+					last_spd.number = pn
+					last_spd.src_port = pinfo.src_port
+					last_spd.dst_port = pinfo.dst_port
+					response_headers[pn] = buffer2:bytes()
+				end
+			end
 			t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
-			pinfo.cols.info:append(string.format(" %s ", mne))
-		else
-			pinfo.cols.protocol = "CAPT Status Monitor"
-			t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
-			pinfo.cols.info:set(mne)
+			t_captcmd:add_le(pkt_size, br_size)
 		end
-		t_captcmd:add_le(pkt_size, br_size)
-	else
-		t_captcmd = t_pckt:add(capt_comment, string.format("Unknown Opcode"))
-		return
 	end
+
+	mne = opcodes_prn[opcode] or opcodes[opcode]
+	if bit32.btest(optype, TYPE_IS_CONTROL) then
+		pinfo.cols.protocol = "CAPT Device Control"
+		pinfo.cols.info:append(string.format(" %s ", mne))
+	else
+		pinfo.cols.protocol = "CAPT Status Monitor"
+		pinfo.cols.info:set(mne)
+	end
+
 	-- dissect!
 	if opcode == 0xD0A9 then
 		-- multi-command packet
