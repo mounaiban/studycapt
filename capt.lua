@@ -182,10 +182,10 @@ function capt_proto.dissector(buffer, pinfo, tree)
 
 	mne = opcodes_prn[opcode] or opcodes[opcode]
 	if bit32.btest(optype, TYPE_IS_CONTROL) then
-		pinfo.cols.protocol = "CAPT Device Control"
+		pinfo.cols.protocol = "CAPT Control"
 		pinfo.cols.info:append(string.format(" %s ", mne))
 	else
-		pinfo.cols.protocol = "CAPT Status Monitor"
+		pinfo.cols.protocol = "CAPT Status"
 		pinfo.cols.info:set(mne)
 	end
 
@@ -238,10 +238,10 @@ end
 --
 
 -- 0xA0A1, 0xA0A8, 0xE0A0: Status Checks
--- Just show the first six bytes in Packet List info column for now...
-capt_stat_proto = Proto("capt_xstatus", "CAPT Status Check")
+-- Just dump all bytes into the information column
+capt_stat_proto = Proto("capt_status", "CAPT Status")
 function capt_stat_proto.dissector(buffer, pinfo, tree) do
-	local dumphex = buffer(0,6):bytes():tohex(false, ' ')
+	local dumphex = buffer(0,-1):bytes():tohex(false, ' ')
 	pinfo.cols.info:append(string.format(": %s", dumphex))
 end end
 
