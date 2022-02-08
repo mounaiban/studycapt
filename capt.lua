@@ -147,7 +147,6 @@ function capt_proto.dissector(buffer, pinfo, tree)
 			do
 				local hbytes = response_headers[hn]
 				local rabytes = ByteArray.new()
-				t_captcmd = t_pckt:add(capt_header_pn, hn)
 				rabytes:append(hbytes)
 				rabytes:append(buffer2:bytes())
 				-- switch buffers, re-detect opcode and size
@@ -157,6 +156,8 @@ function capt_proto.dissector(buffer, pinfo, tree)
 				size = br_size:le_uint()
 				opcode = br_opcode:le_uint()
 				optype = capt_opcode_type(opcode)
+				t_captcmd = t_pckt:add(capt_header_pn, hn)
+				t_captcmd:add_le(capt_cmd, br_opcode)
 			end
 		end
 	elseif buflen >= 4 then
