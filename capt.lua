@@ -268,50 +268,58 @@ end end
 -- Note: The paper specs appear to be in 1/10ths mm, apparently for fixed
 -- point arithmetic (to avoid floats when HF is not available)
 local prefix = "capt_ident"
-local a1a1_mag_a = ProtoField.uint16(prefix .. ".magic_a", "Magic Number A")
-local a1a1_mag_b = ProtoField.uint16(prefix .. ".magic_b", "Magic Number B")
+local a1a1_mag_color = ProtoField.uint16(prefix .. ".magic_color", "Color Printing(?)")
+local a1a1_mag_product = ProtoField.uint16(prefix .. ".magic_product", "Product Code(?)")
 local a1a1_mag_c = ProtoField.uint16(prefix .. ".magic_c", "Magic Number C")
-local a1a1_mag_d = ProtoField.uint16(prefix .. ".magic_d", "Magic Number D")
-local a1a1_mag_wmax = ProtoField.uint16(prefix .. ".magic_wmax", "Maximum Paper Width (x0.1 mm)")
-local a1a1_mag_npt = ProtoField.uint8(prefix .. ".magic_npt", "Top Non-printable Margin (x0.1mm)")
-local a1a1_mag_hmin = ProtoField.uint16(prefix .. ".magic_hmin", "Minimum Paper Height (x0.1 mm)")
-local a1a1_mag_hmax = ProtoField.uint16(prefix .. ".magic_hmax", "Maximum Paper Height (x0.1 mm)")
-local a1a1_mag_npb = ProtoField.uint8(prefix .. ".magic_npb", "Bottom Non-printable Margin(x0.1 mm)")
-local a1a1_mag_npl = ProtoField.uint8(prefix .. ".magic_npl", "Left Non-printable Margin(x0.1 mm)")
-local a1a1_mag_npr = ProtoField.uint8(prefix .. ".magic_npr", "Right Non-printable Margin (x0.1 mm)")
-local a1a1_mag_rx = ProtoField.uint16(prefix .. ".magic_rx", "X Resolution(?)")
-local a1a1_mag_ry = ProtoField.uint16(prefix .. ".magic_ry", "Y Resolution(?)")
+local a1a1_mag_d = ProtoField.uint16(prefix .. ".magic_feature_bm_a", "Feature Bitmask A(?)",base.HEX)
+local a1a1_throughput = ProtoField.uint16(prefix .. ".throughput", "Throughput/Maximum Print Speed (pages/hr)")
+local a1a1_w_max = ProtoField.uint16(prefix .. ".w_max", "Maximum Paper Width (x0.1 mm)")
+local a1a1_w_min = ProtoField.uint16(prefix .. ".w_min", "Minimum Paper Width (x0.1 mm)")
+local a1a1_h_max = ProtoField.uint16(prefix .. ".h_max", "Maximum Paper Height (x0.1 mm)")
+local a1a1_h_min = ProtoField.uint16(prefix .. ".h_min", "Minimum Paper Height (x0.1 mm)")
+local a1a1_npt = ProtoField.uint8(prefix .. ".npt", "Top Non-printable Margin (x0.1mm)")
+local a1a1_npb = ProtoField.uint8(prefix .. ".npb", "Bottom Non-printable Margin(x0.1 mm)")
+local a1a1_npl = ProtoField.uint8(prefix .. ".npl", "Left Non-printable Margin(x0.1 mm)")
+local a1a1_npr = ProtoField.uint8(prefix .. ".npr", "Right Non-printable Margin (x0.1 mm)")
+local a1a1_rx = ProtoField.uint16(prefix .. ".rx", "X Resolution(?)")
+local a1a1_ry = ProtoField.uint16(prefix .. ".ry", "Y Resolution(?)")
+local a1a1_mag_capt_ver = ProtoField.uint16(prefix .. ".magic_capt_ver", "CAPT Version")
 a1a1_proto = Proto(prefix, "CAPT: Printer Information")
 a1a1_proto.fields = {
-	a1a1_mag_a,
-	a1a1_mag_b,
+	a1a1_mag_color,
+	a1a1_mag_product,
 	a1a1_mag_c,
 	a1a1_mag_d,
-	a1a1_mag_wmax,
-	a1a1_mag_hmin,
-	a1a1_mag_hmax,
-	a1a1_mag_npt,
-	a1a1_mag_npb,
-	a1a1_mag_npl,
-	a1a1_mag_npr,
-	a1a1_mag_rx,
-	a1a1_mag_ry
+	a1a1_throughput,
+	a1a1_w_max,
+	a1a1_h_max,
+	a1a1_w_min,
+	a1a1_h_min,
+	a1a1_npt,
+	a1a1_npb,
+	a1a1_npl,
+	a1a1_npr,
+	a1a1_rx,
+	a1a1_ry,
+	a1a1_mag_capt_ver,
 }
 function a1a1_proto.dissector(buffer, pinfo, tree)
-	tree:add_le(a1a1_mag_a, buffer(0,2))
-	tree:add_le(a1a1_mag_b, buffer(2,2))
+	tree:add_le(a1a1_mag_color, buffer(0,2))
+	tree:add_le(a1a1_mag_product, buffer(2,1))
 	tree:add_le(a1a1_mag_c, buffer(4,2))
 	tree:add_le(a1a1_mag_d, buffer(6,2))
-	tree:add_le(a1a1_mag_wmax, buffer(20,2))
-	tree:add_le(a1a1_mag_hmax, buffer(24,2))
-	tree:add_le(a1a1_mag_hmin, buffer(32,2))
-	tree:add_le(a1a1_mag_hmin, buffer(36,2))
-	tree:add_le(a1a1_mag_npt, buffer(40,1))
-	tree:add_le(a1a1_mag_npb, buffer(41,1))
-	tree:add_le(a1a1_mag_npl, buffer(42,1))
-	tree:add_le(a1a1_mag_npr, buffer(43,1))
-	tree:add_le(a1a1_mag_rx, buffer(44,2))
-	tree:add_le(a1a1_mag_ry, buffer(46,2))
+	tree:add_le(a1a1_throughput, buffer(16,2))
+	tree:add_le(a1a1_w_max, buffer(20,2))
+	tree:add_le(a1a1_h_max, buffer(24,2))
+	tree:add_le(a1a1_w_min, buffer(32,2))
+	tree:add_le(a1a1_h_min, buffer(36,2))
+	tree:add_le(a1a1_npt, buffer(40,1))
+	tree:add_le(a1a1_npb, buffer(41,1))
+	tree:add_le(a1a1_npl, buffer(42,1))
+	tree:add_le(a1a1_npr, buffer(43,1))
+	tree:add_le(a1a1_rx, buffer(44,2))
+	tree:add_le(a1a1_ry, buffer(46,2))
+	tree:add_le(a1a1_mag_capt_ver, buffer(48,1))
 end
 
 -- 0xD0A0: CAPT_SET_PARM_PAGE
