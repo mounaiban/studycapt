@@ -187,6 +187,9 @@ function capt_proto.dissector(buffer, pinfo, tree)
 	else
 		pinfo.cols.protocol = "CAPT Status"
 		pinfo.cols.info:set(mne)
+		if pinfo.dst_port ~= HOST_PORT then
+			pinfo.cols.info:append(" (send command)")
+		end
 	end
 
 	-- dissect!
@@ -212,6 +215,7 @@ function capt_proto.dissector(buffer, pinfo, tree)
 				else
 					t_captcmd:add(capt_comment, "See next Response Body from this source to host for remaining data")
 				end
+				pinfo.cols.info:append(" (recv header)")
 			end
 		else
 			local n = size - 4
