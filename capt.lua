@@ -26,6 +26,18 @@
 -- src/capt-command.h in the captdriver tree.
 
 --
+-- NOTE: When opening another log in the Wireshark GUI without restarting,
+-- the Segmented Response Journal needs to be cleared to ensure the accuracy
+-- of the packet information displayed.
+--
+-- To manually reset the journal, select Tools -> Clear CAPT Segment Journal
+-- and Reload in the WS GUI.
+--
+-- At least in WS 2.6.6, this limitation is due to the fact that dissector
+-- scope variables are not reset when opening another log in the same session.
+--
+
+--
 -- Main Dissector
 --
 HOST_PORT = 0xFFFFFFFF  -- USB host in pinfo.dst_port or pinfo.src_port
@@ -455,3 +467,15 @@ local dt_usb = DissectorTable.get("usb.bulk")
 dt_usb:add(0x0, capt_proto)
 dt_usb:add(0xff, capt_proto)
 dt_usb:add(0xffff, capt_proto)
+
+-- Helper Functions, Listeners, etc...
+local function clear_journal()
+	last_spd = {}
+	response_headers = {}
+	response_pairs = {}
+	if gui_enabled() then
+		reload_packets()
+	end
+end
+
+register_menu("Clear CAPT Segment Journal and _Reload", clear_journal, MENU_TOOLS_UNSORTED)
