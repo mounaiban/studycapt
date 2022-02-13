@@ -146,8 +146,7 @@ function capt_proto.dissector(buffer, pinfo, tree)
 					and last_spd.dst_port == pinfo.dst_port
 				if test then
 					response_pairs[pinfo.number] = last_spd.number
-					-- response_pairs[last_spd.number] = pinfo.number
-					-- TODO: Find out why back-linking doesn't work
+					response_pairs[last_spd.number] = pinfo.number
 					last_spd = {} -- reset to prevent spurious pairings
 					return
 				else
