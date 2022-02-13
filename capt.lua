@@ -139,11 +139,12 @@ function capt_proto.dissector(buffer, pinfo, tree)
 		-- pair response body and header on first visit to packet
 		if not hn then
 			do
-				local test = last_spd.number or pinfo.number+1 < pinfo.number
-					-- PROTIP: a nil last_spd.number resolves to a number always
-					-- higher than pinfo.number as a hack to fail this test
+				-- PROTIP: a nil last_spd.number resolves to a number always
+				-- higher than pinfo.number as a hack to fail this test
+				local test = (last_spd.number or pinfo.number+1) < pinfo.number
 					and last_spd.src_port == pinfo.src_port
 					and last_spd.dst_port == pinfo.dst_port
+					and buflen == last_spd.expected_body_size
 				if test then
 					response_pairs[pinfo.number] = last_spd.number
 					response_pairs[last_spd.number] = pinfo.number
