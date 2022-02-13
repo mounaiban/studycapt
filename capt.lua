@@ -41,6 +41,7 @@
 -- Main Dissector
 --
 HOST_PORT = 0xFFFFFFFF  -- USB host in pinfo.dst_port or pinfo.src_port
+REMINDER_CLEAR_JOURNAL = "If this looks incorrect, try Tools -> Clear CAPT Segment Journal and Reload in the menu if in the GUI."
 TYPE_NOT_OPCODE = 0x0
 TYPE_IS_OPCODE = 0x01
 TYPE_IS_CONTROL = 0x02
@@ -121,6 +122,7 @@ function capt_proto.dissector(buffer, pinfo, tree)
 	local optype = TYPE_NOT_OPCODE
 	local size
 
+	t_pckt:add(capt_comment, REMINDER_CLEAR_JOURNAL)
 	-- classify...
 	-- detect opcode
 	if buflen >= 2 then
