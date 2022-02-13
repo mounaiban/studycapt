@@ -40,6 +40,8 @@
 --
 -- Main Dissector
 --
+
+HEADER_SIZE = 6
 HOST_PORT = 0xFFFFFFFF  -- USB host in pinfo.dst_port or pinfo.src_port
 REMINDER_CLEAR_JOURNAL = "If this looks incorrect, try Tools -> Clear CAPT Segment Journal and Reload in the menu if in the GUI."
 TYPE_NOT_OPCODE = 0x0
@@ -165,6 +167,7 @@ function capt_proto.dissector(buffer, pinfo, tree)
 				rabytes:append(buffer2:bytes())
 				-- switch buffers, re-detect opcode and size
 				buffer2 = rabytes:tvb('Response')
+				buflen = buffer2:len()
 				br_opcode = buffer2(0, 2)
 				br_size = buffer2(2, 2)
 				size = br_size:le_uint()
@@ -175,22 +178,28 @@ function capt_proto.dissector(buffer, pinfo, tree)
 			end
 		end
 	elseif buflen >= 4 then
-		-- handle packets with header
+		-- handle packets with command
 		br_size = buffer2(2, 2)
 		size = br_size:le_uint()
 		if bit32.btest(optype, TYPE_IS_OPCODE) then
-			-- save headers of segmented packets on first visit
+			t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
+			t_captcmd:add_le(pkt_size, br_size)
 			if size > buflen then
+				-- headers of segmented packets
 				local pn = pinfo.number
 				if not response_headers[pn] then
+					response_headers[pn] = buffer2:bytes()
+				end
+				if not response_pairs[pn] then
 					last_spd.number = pn
 					last_spd.src_port = pinfo.src_port
 					last_spd.dst_port = pinfo.dst_port
-					response_headers[pn] = buffer2:bytes()
+					last_spd.expected_body_size = size - HEADER_SIZE
+					t_captcmd:add(capt_comment, "See next Response Body from this source to host for remaining data")
+				else
+					t_captcmd:add(capt_body_pn, response_pairs[pn])
 				end
 			end
-			t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
-			t_captcmd:add_le(pkt_size, br_size)
 		end
 	end
 
@@ -202,7 +211,9 @@ function capt_proto.dissector(buffer, pinfo, tree)
 		pinfo.cols.protocol = "CAPT Status"
 		pinfo.cols.info:set(mne)
 		if pinfo.dst_port ~= HOST_PORT then
-			pinfo.cols.info:append(" (send command)")
+			pinfo.cols.info:append(" (send)")
+		else
+			pinfo.cols.info:append(" (rx)")
 		end
 	end
 
@@ -219,38 +230,24 @@ function capt_proto.dissector(buffer, pinfo, tree)
 			capt_proto.dissector(buffer2(i, n):tvb(), pinfo, t_gcmd)
 			i = i + n -- is there a Lua increment operator?
 		end
-	elseif size > 4 then
-		-- single-command packet
-		if size > buffer2:len() then
-			do
-				local rn = response_pairs[pinfo.number]
-				if rn then
-					t_captcmd:add(capt_body_pn, rn)
-				else
-					t_captcmd:add(capt_comment, "See next Response Body from this source to host for remaining data")
-				end
-				pinfo.cols.info:append(" (recv header)")
-			end
-		else
-			local n = size - 4
-			local br_parm = buffer2(4, n)
-			t_captcmd:add(params, br_parm)
-			-- select sub-dissector
-			if opcode == 0xA0A1 or opcode == 0xA0A8 or opcode == 0xE0A0 then
-				capt_stat_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
-			elseif opcode == 0xA1A1 then
-				a1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
-			elseif opcode == 0xD0A0 then
-				d0a0_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
-			elseif opcode == 0xD0A4 then
-				d0a4_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
-			elseif opcode == 0xE1A1 then
-				e1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
-			end
+	elseif buflen > HEADER_SIZE then
+		-- unsegmented or desegmented packet
+		local br_parm = buffer2(4, -1)
+		t_captcmd:add(params, br_parm)
+		-- select sub-dissector
+		if opcode == 0xA0A1 or opcode == 0xA0A8 or opcode == 0xE0A0 then
+			capt_stat_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+		elseif opcode == 0xA1A1 then
+			a1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+		elseif opcode == 0xD0A0 then
+			d0a0_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+		elseif opcode == 0xD0A4 then
+			d0a4_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+		elseif opcode == 0xE1A1 then
+			e1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
 		end
 	end
 end
-
 --
 -- Device Control Sub-Dissectors
 --
