@@ -173,8 +173,8 @@ function capt_proto.dissector(buffer, pinfo, tree)
 				size = br_size:le_uint()
 				opcode = br_opcode:le_uint()
 				optype = capt_opcode_type(opcode)
-				t_captcmd = t_pckt:add(capt_header_pn, hn)
-				t_captcmd:add_le(capt_cmd, br_opcode)
+				t_pckt:add(capt_header_pn, hn)
+				t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
 			end
 		end
 	elseif buflen >= 4 then
@@ -195,9 +195,9 @@ function capt_proto.dissector(buffer, pinfo, tree)
 					last_spd.src_port = pinfo.src_port
 					last_spd.dst_port = pinfo.dst_port
 					last_spd.expected_body_size = size - HEADER_SIZE
-					t_captcmd:add(capt_comment, "See next Response Body from this source to host for remaining data")
+					t_pckt:add(capt_comment, "See next Response Body from this source to host for remaining data")
 				else
-					t_captcmd:add(capt_body_pn, response_pairs[pn])
+					t_pckt:add(capt_body_pn, response_pairs[pn])
 				end
 			end
 		end
@@ -234,6 +234,7 @@ function capt_proto.dissector(buffer, pinfo, tree)
 		-- unsegmented or desegmented packet
 		local br_parm = buffer2(4, -1)
 		t_captcmd:add(params, br_parm)
+		t_captcmd:add_le(pkt_size, br_size)
 		-- select sub-dissector
 		if opcode == 0xA0A1 or opcode == 0xA0A8 or opcode == 0xE0A0 then
 			capt_stat_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
