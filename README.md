@@ -34,34 +34,6 @@ To benchmark with 64-bit and 128-bit numbers:
 >>> benchmark(sample=sample_128, sizeof=16)
 ```
 
-### bytes2pbm
-A script to make PBM P1 images from standard input or files, visualising it
-as a 1-bpp bitmap.
-
-Assuming that ``bytes2pbm.py`` is already marked as executable with
-``chmod +x bytes2pbm.py`` or any alternative method:
-
-```
-# inputs should be (w*h)/8 bytes long, bytes will be ignored or padded
-# if the input length is not correct
-
-# visualise a file as a 104x100x1bpp bitmap
-$ ./bytes2pbm 104 100 your_file > vis.pbm
-
-# enter text to be visualised as a 16x16 bitmap
-$ ./bytes2pbm 16 16 - > message.pbm
-
-# you cannot crib from RNGs as random bytes can be mistaken as malformed strings
-$ dd if=/dev/urandom bs=1 count=800 | ./bytes2pbm 80 80 -
-...
-UnicodeDecodeError: ....
-
-# instead, output such streams to a separate file:
-$ dd if=/dev/urandom bs=1 count=800 of=random.bin
-$ ./bytes2pbm 80 80 random.bin > random.pbm
-
-```
-
 ### in2pbmp4.sh
 A script to make PBM P4 images from files, by basically slapping a PBM P4 header
 onto an excerpt of the first bytes of a file. PBM P4s are eight times as compact
