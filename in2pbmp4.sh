@@ -5,7 +5,8 @@
 # visualisation of binary data
 #
 # by Moses Chong 
-# (2020/12/13)
+# First edition 2020/12/13
+# Second edition 2022/02/17
 #
 # Usage: in2pbmp4 width height input_file > output_file
 # Example: in2pbmp4 80 80 in_file.bin > out_file.pbm
@@ -22,5 +23,5 @@
 # along with this software. If not, see:
 # <http://creativecommons.org/publicdomain/zero/1.0/>. 
 #
-if test $# == 3; then echo -e "P4\n$1 $2\n" && dd ibs=$((($1 * $2) / 8)) count=1 if=$3 conv=block status=none; else echo "Usage: $0 w h input_file > output_file" ; fi
+if test $# = 3; then printf "P4\n$1 $2\n" && dd ibs=$((($1 * $2) / 8)) count=1 if=$3 conv=block status=none; else echo "Usage: $0 w h input_file > output_file" ; fi
 

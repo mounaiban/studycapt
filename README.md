@@ -36,15 +36,18 @@ To benchmark with 64-bit and 128-bit numbers:
 
 ### in2pbmp4.sh
 A script to make PBM P4 images from files, by basically slapping a PBM P4 header
-onto an excerpt of the first bytes of a file. PBM P4s are eight times as compact
-as a P1, and are recommended when there is no need to tinker with individual bits.
+onto an excerpt of the first bytes of a file.
 
 Assuming that ``in2pbmp4.sh`` is already marked as executable with
 ``chmod +x`` or any alternative method:
 
 ```
-# Visualise the first (104*80)/8 bytes of a file:
-$ ./in2bpmp4 104 80 your_file > visp4.pbm
+# Visualise the first 8320 (i.e. 104x80) bytes of a file as a 104x80px image:
+$ ./in2bpmp4 104 80 binary_file > visp4.pbm
+
+# Create an A4-sized random 1bpp image (at 600dpi) for compression tests
+# Note: the name of the file containing random bits is repeated at two places
+$ dd if=/dev/urandom of=random-a4.bin bs=100 count=347944 && ./in2pbmp4 4970 7014 random-a4.bin > random-a4.pbm
 ```
 
 ### sample\_balls.py
