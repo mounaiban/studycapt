@@ -57,6 +57,17 @@ desc_text_fmt = "An orderly arrangement of {n} by {n} {shading} balls"
 desc_fmt = "<desc>{}</desc>\n"
 grad_a = ((0, "000"),(100, "fff"))
 grad_b = ((0, "eee"),(100, "000"))
+grad_rb_a = (
+    (0, "f0f"),
+    (45, "00f"),
+    (50, "0ff"),
+    (60, "0f0"),
+    (80, "ff0"),
+    (100, "f00"),
+)
+grad_rb_b = (
+    (grad_rb_a[x][0], grad_rb_a[-(x+1)][1]) for x in range(len(grad_rb_a))
+) # take rb_a, keep the stops, reverse the order of the colours
 
 q = lambda s, unit: "{}{}".format(s,unit) # quantity with unit as string
 svg_s = lambda w,h,cont: svg_fmt.format(w, h, XMLNS_SVG, XMLNS_XLINK, cont)
@@ -160,6 +171,25 @@ def _gradi_ball(x, y, unit=UNIT_DEFAULT, u_id=None, i=0):
     fill_url = "url(#rg-{})".format(k)
     return _ball(x, y, fill_url, unit=unit, u_id=u_id)
 
+def _rainbow_ball(x, y, unit=UNIT_DEFAULT, u_id=None, i=0):
+    """
+    Returns a string to place a rainbow radial gradient-filled ball on the
+    test page.
+
+    Argument i sets the fill of the ball:
+
+    * zero and even numbers: red on the outside to violet on the inside
+
+    * odd numbers: violet on the outside to red on the inside
+
+    Arguments for x, y, unit and u_id have the same use as in _ball(), see
+    _ball() above for usage.
+
+    """
+    k = (i % 2) + 2
+    fill_url = "url(#rg-{})".format(k)
+    return _ball(x, y, fill_url, unit=unit, u_id=u_id)
+
 def balls_page(m, w, h, unit=UNIT_DEFAULT, mode='grey'):
     """
     Returns a string for a one-page SVG document containing m x m
@@ -198,6 +228,8 @@ def balls_page(m, w, h, unit=UNIT_DEFAULT, mode='grey'):
         _ball_symbol(w/m, h/m, unit=unit),
         _rad_gradient_def(grad_a, rg_id=0),
         _rad_gradient_def(grad_b, rg_id=1),
+        _rad_gradient_def(grad_rb_a, rg_id=2),
+        _rad_gradient_def(grad_rb_b, rg_id=3),
     ]
     defs_cnt = ''
     for d in defs_list:
@@ -237,7 +269,9 @@ MODES_FNS = {
     'gray': _grey_flat_ball,
     'color': _color_flat_ball,
     'colour': _color_flat_ball,
-    'bw-radial-gradient': _gradi_ball
+    'bw-radial-gradient': _gradi_ball,
+    'color-radial-gradient': _rainbow_ball,
+    'colour-radial-gradient': _rainbow_ball,
 } # NOTE: this dict had to be placed after function definitions
 
 if __name__ == '__main__':
