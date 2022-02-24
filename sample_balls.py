@@ -156,7 +156,7 @@ def _grey_flat_ball(x, y, unit=UNIT_DEFAULT, u_id=None, i=0):
     _ball() above for usage.
 
     """
-    return _ball(x, y, '#999', unit=unit, u_id=u_id)
+    return _ball(x, y, '#bbb', unit=unit, u_id=u_id)
 
 def _color_flat_ball(x, y, unit=UNIT_DEFAULT, u_id=None, i=0):
     """
