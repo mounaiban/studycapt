@@ -26,7 +26,6 @@ testing any other printer driver.
 # along with this software. If not, see:
 # <http://creativecommons.org/publicdomain/zero/1.0/>. 
 #
-# TODO: Don't add gradient definitions when not used in final output
 # TODO: Can CSS further reduce output data size?
 # TODO: Document argument format for functions
 # TODO: Re-implement using XML API (xml.etree)
@@ -209,7 +208,7 @@ def _rainbow_ball(x, y, unit=UNIT_DEFAULT, u_id=None, i=0):
     _ball() above for usage.
 
     """
-    k = (i % 2) + 2
+    k = i % 2
     fill_url = "url(#rg-{})".format(k)
     return _ball(x, y, fill_url, unit=unit, u_id=u_id)
 
@@ -247,13 +246,8 @@ def balls_page(m, w, h, unit=UNIT_DEFAULT, mode='grey'):
     desc_text = desc_text_fmt.format(n=m, shading=mode)
     desc = desc_fmt.format(desc_text)
     # prepare defs
-    defs_list = [
-        _ball_symbol(w/m, h/m, unit=unit),
-        _rad_gradient_def(grad_a, rg_id=0),
-        _rad_gradient_def(grad_b, rg_id=1),
-        _rad_gradient_def(grad_rb_a, rg_id=2),
-        _rad_gradient_def(grad_rb_b, rg_id=3),
-    ]
+    defs_list = [_ball_symbol(w/m, h/m, unit=unit),]
+    defs_list.extend(GRAD_DEFS[mode])
     defs_cnt = ''
     for d in defs_list:
         defs_cnt = ''.join((defs_cnt, d, '\n'))
@@ -287,6 +281,24 @@ def print_preset_page(size_name, m, mode='grey'):
         )
         print(msg, file=stderr)
 
+BW_GRAD_DEFS = (
+        _rad_gradient_def(grad_a, rg_id=0),
+        _rad_gradient_def(grad_b, rg_id=1),
+)
+COLOR_GRAD_DEFS = (
+        _rad_gradient_def(grad_rb_a, rg_id=0),
+        _rad_gradient_def(grad_rb_b, rg_id=1),
+)
+GRAD_DEFS = {
+    'black': [],
+    'grey': [],
+    'gray': [],
+    'color': [],
+    'colour': [],
+    'bw-radial-gradient': BW_GRAD_DEFS,
+    'color-radial-gradient': COLOR_GRAD_DEFS,
+    'colour-radial-gradient': COLOR_GRAD_DEFS,
+}
 MODES_FNS = {
     'black': _black_flat_ball,
     'grey': _grey_flat_ball,
@@ -294,9 +306,14 @@ MODES_FNS = {
     'color': _color_flat_ball,
     'colour': _color_flat_ball,
     'bw-radial-gradient': _gradi_ball,
-    'color-radial-gradient': _rainbow_ball,
-    'colour-radial-gradient': _rainbow_ball,
-} # NOTE: this dict had to be placed after function definitions
+    'color-radial-gradient': _gradi_ball,
+    'colour-radial-gradient': _gradi_ball,
+}
+# PROTIP: MODES_FNS is placed after the function definitions because it
+# references the functions as objects, but before the command line code below
+# because it shares the same module-level scope.
+# It could have been placed before balls_page(), but that would have made
+# this module somewhat harder to read.
 
 if __name__ == '__main__':
     parser_spec = {
