@@ -26,6 +26,7 @@ testing any other printer driver.
 # along with this software. If not, see:
 # <http://creativecommons.org/publicdomain/zero/1.0/>. 
 #
+# TODO: Don't add gradient definitions when not used in final output
 # TODO: Can CSS further reduce output data size?
 # TODO: Document argument format for functions
 # TODO: Re-implement using XML API (xml.etree)
@@ -133,13 +134,26 @@ def _ball(x, y, fill, unit=UNIT_DEFAULT, u_id=None):
     )
     return use
 
+def _black_flat_ball(x, y, unit=UNIT_DEFAULT, u_id=None, i=0):
+    """
+    Returns a string to place a black ball on the test page.
+
+    NOTE: argument i is not used; it is for compatibility purposes only.
+
+    Arguments for x, y, unit and u_id have the same use as in _ball(), see
+    _ball() above for usage.
+
+    """
+    return _ball(x, y, '#000', unit=unit, u_id=u_id)
+
 def _grey_flat_ball(x, y, unit=UNIT_DEFAULT, u_id=None, i=0):
     """
     Returns a string to place a grey ball on the test page.
-    Arguments are the same as _ball(), see _ball() for usage.
 
-    NOTE: i is not used in this function; it is included for
-    compatibility purposes only.
+    NOTE: argument i is not used; it is for compatibility purposes only.
+
+    Arguments for x, y, unit and u_id have the same use as in _ball(), see
+    _ball() above for usage.
 
     """
     return _ball(x, y, '#999', unit=unit, u_id=u_id)
@@ -147,10 +161,14 @@ def _grey_flat_ball(x, y, unit=UNIT_DEFAULT, u_id=None, i=0):
 def _color_flat_ball(x, y, unit=UNIT_DEFAULT, u_id=None, i=0):
     """
     Returns a string to place a coloured ball on the test page.
-    Arguments are the same as those of _ball(), see _ball() for usage.
 
-    * i: sets the colour of the ball, the colour is cycled between
-      aqua-cyan, magenta, yellow, black, red, green and blue.
+    Argument i sets the fill of the ball:
+
+    0: aqua-cyan, 1: magenta, 2: yellow, 3: black, 4: red, 5: green, 6: blue,
+    7 onwards: repeat the cycle from 0 to 6; i = n % 7
+
+    Arguments for x, y, unit and u_id have the same use as in _ball(), see
+    _ball() above for usage.
 
     """
     fills = ('#0ff', '#f0f', '#ff0', '#000', '#f00', '#0f0', '#00f') # CMYKRGB
@@ -160,11 +178,16 @@ def _color_flat_ball(x, y, unit=UNIT_DEFAULT, u_id=None, i=0):
 def _gradi_ball(x, y, unit=UNIT_DEFAULT, u_id=None, i=0):
     """
     Returns a string to place a grey radial gradient-filled ball on the
-    test page.  Arguments are the same as those of _ball(), see _ball()
-    for usage.
+    test page.
 
-    * i: sets the fill of the ball, fills alternate between light-to-dark
-      and dark-to-light
+    Argument i sets the fill of the ball:
+
+    * zero and even numbers: black on the inside of the ball
+
+    * odd numbers: black on the outside of the ball
+
+    Arguments for x, y, unit and u_id have the same use as in _ball(), see
+    _ball() above for usage.
 
     """
     k = i % 2
@@ -203,8 +226,8 @@ def balls_page(m, w, h, unit=UNIT_DEFAULT, mode='grey'):
 
     * unit: specifies measurement unit of w and h.
 
-    * mode: selects shading on the Balls, current choices are
-      'grey', 'color' and 'grey-radial-gradient'
+    * mode: selects shading on the Balls. See the MODES_FNS dict near the
+      bottom of this module for a list of all possible choices.
 
     Example Usage
     =============
@@ -265,6 +288,7 @@ def print_preset_page(size_name, m, mode='grey'):
         print(msg, file=stderr)
 
 MODES_FNS = {
+    'black': _black_flat_ball,
     'grey': _grey_flat_ball,
     'gray': _grey_flat_ball,
     'color': _color_flat_ball,
