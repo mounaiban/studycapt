@@ -57,8 +57,11 @@ $ ./in2bpmp4 104 80 binary_file > visp4.pbm
 
 # Create an A4-sized random 1bpp image (at 600dpi) for compression tests
 # Note: the name of the file containing random bits is repeated at two places
-$ dd if=/dev/urandom of=random-a4.bin bs=100 count=347944 && ./in2pbmp4 4970 7014 random-a4.bin > random-a4.pbm
+$ dd if=/dev/urandom of=random-a4.bin count=100 bs=347944 && ./in2pbmp4 4970 7014 random-a4.bin > random-a4.pbm
 ```
+
+> PROTIP: Technical users may notice that ``bs`` and ``count`` have been
+> swapped. This is intentional and was done to generate the data faster.
 
 You can easily create 1-bit (pseudo-)random noise images with this script, these
 are not compressible by conventional compression algorithms. Such images may be
