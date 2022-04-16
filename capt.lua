@@ -168,11 +168,6 @@ function capt_proto.dissector(buffer, pinfo, tree)
 				-- switch buffers, re-detect opcode and size
 				buffer2 = rabytes:tvb('Response')
 				buflen = buffer2:len()
-				br_opcode = buffer2(0, 2)
-				br_size = buffer2(2, 2)
-				size = br_size:le_uint()
-				opcode = br_opcode:le_uint()
-				optype = capt_opcode_type(opcode)
 				t_pckt:add(capt_header_pn, hn)
 				t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
 			end
@@ -202,11 +197,20 @@ function capt_proto.dissector(buffer, pinfo, tree)
 			end
 		end
 	end
+	run_sub_dissector(buffer2, pinfo, t_captcmd)
+end
 
+function run_sub_dissector(buffer, pinfo, tree)
+	buflen = buffer:len()
+	br_opcode = buffer(0, 2)
+	br_size = buffer(2, 2)
+	size = br_size:le_uint()
+	opcode = br_opcode:le_uint()
+	optype = capt_opcode_type(opcode)
 	mne = opcodes_prn[opcode] or opcodes[opcode]
 	if bit32.btest(optype, TYPE_IS_CONTROL) then
 		pinfo.cols.protocol = "CAPT Control"
-		pinfo.cols.info:append(string.format(" %s ", mne))
+		pinfo.cols.info:append(string.format(" %s", mne))
 	else
 		pinfo.cols.protocol = "CAPT Status"
 		pinfo.cols.info:set(mne)
@@ -221,34 +225,38 @@ function capt_proto.dissector(buffer, pinfo, tree)
 	if opcode == 0xD0A9 then
 		-- multi-command packet
 		pinfo.cols.info:set(string.format("%s:", mne))
-		local i = 4
-		while i < size do
-			local n = buffer2(i+2, 2):le_uint()
-			local gr_opcode = buffer2(i, 2):le_uint()
-			local gr_mne = opcodes_prn[gr_opcode]
-			local t_gcmd = t_captcmd:add_le(capt_cmd, buffer2(i, 2))
-			capt_proto.dissector(buffer2(i, n):tvb(), pinfo, t_gcmd)
-			i = i + n -- is there a Lua increment operator?
+		do
+			local i = 4
+			local size_mc = size
+			while i < size_mc do
+				local n = buffer(i+2, 2):le_uint()
+				local gr_opcode = buffer(i, 2):le_uint()
+				local gr_mne = opcodes_prn[gr_opcode]
+				local t_gcmd = tree:add_le(capt_cmd, buffer(i, 2))
+				run_sub_dissector(buffer(i, n):tvb(), pinfo, t_gcmd)
+				i = i + n
+			end
 		end
 	elseif buflen > HEADER_SIZE then
 		-- unsegmented or desegmented packet
-		local br_parm = buffer2(4, -1)
-		t_captcmd:add(params, br_parm)
-		t_captcmd:add_le(pkt_size, br_size)
+		local br_parm = buffer(4, -1)
+		tree:add(params, br_parm)
+		tree:add_le(pkt_size, br_size)
 		-- select sub-dissector
 		if opcode == 0xA0A1 or opcode == 0xA0A8 or opcode == 0xE0A0 then
-			capt_stat_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+			capt_stat_proto.dissector(br_parm:tvb(), pinfo, tree)
 		elseif opcode == 0xA1A1 then
-			a1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+			a1a1_proto.dissector(br_parm:tvb(), pinfo, tree)
 		elseif opcode == 0xD0A0 then
-			d0a0_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+			d0a0_proto.dissector(br_parm:tvb(), pinfo, tree)
 		elseif opcode == 0xD0A4 then
-			d0a4_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+			d0a4_proto.dissector(br_parm:tvb(), pinfo, tree)
 		elseif opcode == 0xE1A1 then
-			e1a1_proto.dissector(br_parm:tvb(), pinfo, t_captcmd)
+			e1a1_proto.dissector(br_parm:tvb(), pinfo, tree)
 		end
 	end
 end
+
 --
 -- Device Control Sub-Dissectors
 --
