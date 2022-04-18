@@ -213,11 +213,11 @@ if __name__ == '__main__':
     size = SIZES[args.size]
     w = int(round(size[0], 2) * px_per_mm)
     h = int(round(size[1], 2) * px_per_mm)
-    out = sample_page(w, h, fn=MODES_FNS[args.mode])
+    _do_out = lambda: sample_page(w, h, fn=MODES_FNS[args.mode])
     if args.out_file:
-        with open(args.out_file, mode='bx') as f:
-            f.write(out)
+        with open(expanduser(args.out_file), mode='bx') as f:
+            f.write(_do_out())
             f.close()
     else:
-        stdout.buffer.write(out)
+        stdout.buffer.write(_do_out())
 
