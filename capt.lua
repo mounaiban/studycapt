@@ -311,12 +311,14 @@ a1a1_proto.fields = {
 	a1a1_ry,
 	a1a1_mag_capt_ver,
 }
-function a1a1_proto.dissector(buffer, pinfo, tree)
+function a1a1_proto.dissector(buffer, pinfo, tree) do
+	local size = buffer:len()
 	tree:add_le(a1a1_mag_color, buffer(0,2))
 	tree:add_le(a1a1_mag_product, buffer(2,1))
 	tree:add_le(a1a1_mag_c, buffer(4,2))
 	tree:add_le(a1a1_mag_d, buffer(6,2))
 	tree:add_le(a1a1_throughput, buffer(16,2))
+	if size <= 20 then return end
 	tree:add_le(a1a1_w_max, buffer(20,2))
 	tree:add_le(a1a1_h_max, buffer(24,2))
 	tree:add_le(a1a1_w_min, buffer(32,2))
@@ -328,7 +330,7 @@ function a1a1_proto.dissector(buffer, pinfo, tree)
 	tree:add_le(a1a1_rx, buffer(44,2))
 	tree:add_le(a1a1_ry, buffer(46,2))
 	tree:add_le(a1a1_mag_capt_ver, buffer(48,1))
-end
+end end
 
 -- 0xD0A0: CAPT_SET_PARM_PAGE
 local prefix = "capt_set_parm_page"
@@ -461,6 +463,7 @@ end
 -- dissector registration
 local dt_usb_product = DissectorTable.get("usb.product")
 dt_usb_product:add(0x04a9260a, capt_proto) -- LBP810
+dt_usb_product:add(0x04a9262b, capt_proto) -- LBP1120
 dt_usb_product:add(0x04a92676, capt_proto) -- LBP2900
 dt_usb_product:add(0x04a9266a, capt_proto) -- LBP3000
 dt_usb_product:add(0x04a926da, capt_proto) -- LBP3010/3018/3050
