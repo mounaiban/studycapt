@@ -275,62 +275,81 @@ end end
 -- network adapter and the NetSpot Installer software.
 --
 -- Note: The paper specs appear to be in 1/10ths mm, apparently for fixed
--- point arithmetic (to avoid floats when HF is not available)
+-- point arithmetic (to avoid floats when hardware float is not available)
 local prefix = "capt_ident"
-local a1a1_mag_color = ProtoField.uint16(prefix .. ".magic_color", "Color Printing(?)")
-local a1a1_mag_product = ProtoField.uint16(prefix .. ".magic_product", "Product Code(?)")
-local a1a1_mag_c = ProtoField.uint16(prefix .. ".magic_c", "Magic Number C")
-local a1a1_mag_d = ProtoField.uint16(prefix .. ".magic_feature_bm_a", "Feature Bitmask A(?)",base.HEX)
+local a1a1_mag_info_a = ProtoField.uint16(prefix .. ".magic_device_info_a", "Device Info A(?)", base.HEX)
+local a1a1_mag_info_b = ProtoField.uint16(prefix .. ".magic_device_info_b", "Device Info B(?)", base.HEX)
+local a1a1_mag_info_c = ProtoField.uint16(prefix .. ".magic_device_info_c", "Device Info C(?)", base.HEX)
+local a1a1_buffer_size = ProtoField.uint16(prefix .. ".buffer_size", "Buffer Size(?)")
+local a1a1_buffers = ProtoField.uint16(prefix .. ".buffers", "Buffer Count(?)")
 local a1a1_throughput = ProtoField.uint16(prefix .. ".throughput", "Throughput/Maximum Print Speed (pages/hr)")
 local a1a1_w_max = ProtoField.uint16(prefix .. ".w_max", "Maximum Paper Width (x0.1 mm)")
-local a1a1_w_min = ProtoField.uint16(prefix .. ".w_min", "Minimum Paper Width (x0.1 mm)")
+local a1a1_w_max_duplex = ProtoField.uint16(prefix .. ".w_max_duplex", "Duplexer Maximum Paper Width (x0.1 mm)(?)")
 local a1a1_h_max = ProtoField.uint16(prefix .. ".h_max", "Maximum Paper Height (x0.1 mm)")
+local a1a1_h_max_duplex = ProtoField.uint16(prefix .. ".h_max_duplex", "Duplexer Maximum Paper Height (x0.1 mm)(?)")
+local a1a1_w_min = ProtoField.uint16(prefix .. ".w_min", "Minimum Paper Width (x0.1 mm)")
+local a1a1_w_min_duplex = ProtoField.uint16(prefix .. ".w_min_duplex", "Duplexer Minimum Paper Width (x0.1 mm)")
 local a1a1_h_min = ProtoField.uint16(prefix .. ".h_min", "Minimum Paper Height (x0.1 mm)")
+local a1a1_h_min_duplex = ProtoField.uint16(prefix .. ".h_min_duplex", "Duplexer Minimum Paper Height (x0.1 mm)")
 local a1a1_npt = ProtoField.uint8(prefix .. ".npt", "Top Non-printable Margin (x0.1mm)")
 local a1a1_npb = ProtoField.uint8(prefix .. ".npb", "Bottom Non-printable Margin(x0.1 mm)")
 local a1a1_npl = ProtoField.uint8(prefix .. ".npl", "Left Non-printable Margin(x0.1 mm)")
 local a1a1_npr = ProtoField.uint8(prefix .. ".npr", "Right Non-printable Margin (x0.1 mm)")
 local a1a1_rx = ProtoField.uint16(prefix .. ".rx", "X Resolution(?)")
 local a1a1_ry = ProtoField.uint16(prefix .. ".ry", "Y Resolution(?)")
-local a1a1_mag_capt_ver = ProtoField.uint16(prefix .. ".magic_capt_ver", "CAPT Version")
+local a1a1_capt_ver = ProtoField.uint16(prefix .. ".capt_ver", "CAPT Version")
+local a1a1_capt3_info = ProtoField.string(prefix .. ".magic_capt_3_info", "CAPT 3.0 Information(?)")
 a1a1_proto = Proto(prefix, "CAPT: Printer Information")
 a1a1_proto.fields = {
-	a1a1_mag_color,
-	a1a1_mag_product,
-	a1a1_mag_c,
-	a1a1_mag_d,
+	a1a1_mag_info_a,
+	a1a1_mag_info_b,
+	a1a1_mag_info_c,
+	a1a1_buffer_size,
+	a1a1_buffers,
 	a1a1_throughput,
 	a1a1_w_max,
+	a1a1_w_max_duplex,
 	a1a1_h_max,
+	a1a1_h_max_duplex,
 	a1a1_w_min,
+	a1a1_w_min_duplex,
 	a1a1_h_min,
+	a1a1_h_min_duplex,
 	a1a1_npt,
 	a1a1_npb,
 	a1a1_npl,
 	a1a1_npr,
 	a1a1_rx,
 	a1a1_ry,
-	a1a1_mag_capt_ver,
+	a1a1_capt_ver,
+	a1a1_mag_capt3_info,
 }
 function a1a1_proto.dissector(buffer, pinfo, tree) do
 	local size = buffer:len()
-	tree:add_le(a1a1_mag_color, buffer(0,2))
-	tree:add_le(a1a1_mag_product, buffer(2,1))
-	tree:add_le(a1a1_mag_c, buffer(4,2))
-	tree:add_le(a1a1_mag_d, buffer(6,2))
+	tree:add_le(a1a1_mag_info_a, buffer(0,2))
+	tree:add_le(a1a1_mag_info_b, buffer(2,2))
+	tree:add_le(a1a1_mag_info_c, buffer(4,2))
+	tree:add_le(a1a1_buffer_size, buffer(6,2))
+	tree:add_le(a1a1_buffers, buffer(8,2))
 	tree:add_le(a1a1_throughput, buffer(16,2))
 	if size <= 20 then return end
 	tree:add_le(a1a1_w_max, buffer(20,2))
+	tree:add_le(a1a1_w_max_duplex, buffer(22,2))
 	tree:add_le(a1a1_h_max, buffer(24,2))
+	tree:add_le(a1a1_h_max_duplex, buffer(28,2))
 	tree:add_le(a1a1_w_min, buffer(32,2))
+	tree:add_le(a1a1_w_min_duplex, buffer(34,2))
 	tree:add_le(a1a1_h_min, buffer(36,2))
+	tree:add_le(a1a1_h_min_duplex, buffer(38,2))
 	tree:add_le(a1a1_npt, buffer(40,1))
 	tree:add_le(a1a1_npb, buffer(41,1))
 	tree:add_le(a1a1_npl, buffer(42,1))
 	tree:add_le(a1a1_npr, buffer(43,1))
 	tree:add_le(a1a1_rx, buffer(44,2))
 	tree:add_le(a1a1_ry, buffer(46,2))
-	tree:add_le(a1a1_mag_capt_ver, buffer(48,1))
+	tree:add_le(a1a1_capt_ver, buffer(48,1))
+	if size <= 56 then return end
+	tree:add(a1a1_mag_capt3_info, buffer(55,63))
 end end
 
 -- 0xD0A0: CAPT_SET_PARM_PAGE
