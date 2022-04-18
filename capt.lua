@@ -168,6 +168,7 @@ function capt_proto.dissector(buffer, pinfo, tree)
 				-- switch buffers, re-detect opcode and size
 				buffer2 = rabytes:tvb('Response')
 				buflen = buffer2:len()
+				br_opcode = buffer2(0, 2)
 				t_pckt:add(capt_header_pn, hn)
 				t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
 			end
