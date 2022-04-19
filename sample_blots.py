@@ -28,9 +28,9 @@ Compression Architecture (SCoA) format primarily used by early-2000s and late-
 # * This script is currently very slow; generating a 600dpi A4-sized page takes
 #   several minutes on a 2016-vintage, low-end PC.
 #
-# * All output is routed to stdout. In other words, if you run this script
-#   from a terminal window without redirecting output to a file, the terminal
-#   window will be flooded with binary data.
+# * If no output file is specified as part of the --out_file= argmuent and
+#   no redirection is used at the command line, the terminal will be flooded
+#   with binary data.
 #
 
 from argparse import ArgumentParser
@@ -38,7 +38,7 @@ from math import ceil
 from os.path import expanduser
 from sys import argv, stdout
 
-TITLE = "Studycapt Checkerboard Sample"
+TITLE = "Studycapt RLE Study"
 PIXELS_PER_BYTE = 8
 
 # Plotting & Blotting Functions
@@ -57,7 +57,10 @@ def _fn_one_dot(w, h, x, y, **kwargs):
 def _fn_incr_runs_2_pow_x(w, h, x, y, **kwargs):
     """
     Plots runs of pixels that double in size further down the page.
-    Each runs trial behind a space of an equal number of pixels.
+    Each run follows a space of an equal number of pixels. Runs and
+    spaces that reach the right side of the page continue on the
+    next line from the left.
+
     """
     i_px = y*w + x
     b = 2**(i_px.bit_length()-1) # bias
@@ -67,19 +70,23 @@ def _fn_incr_runs_2_pow_x(w, h, x, y, **kwargs):
 def _fn_incr_runs(w, h, x, y, **kwargs):
     """
     Plots runs of pixels seprated by equally-sized spaces. Runs increase
-    gradually further down the page. Every other row has pixel runs that are
-    exactly one pixel longer than spaces on the same line.
+    gradually further down the page. Runs end at the right side of the
+    page.
+
+    Every other row has pixel runs that are exactly one pixel longer
+    than spaces on the same line.
+
     """
     return x%(y or 1) >= y//2
 
 def _fn_circle(w, h, x, y, **kwargs):
-    """Plot a circle in the middle of the canvas"""
+    """Plot a circle in the middle of the page"""
     return (x-w/2)**2 + (y-h/2)**2 <= (min(w,h)/2.5)**2
 
 def _fn_half_diagonal(w, h, x, y, **kwargs):
     """
-    Shade all pixels on the canvas on or below a diagonal line running from
-    the upper left to the lower right.
+    Shade all pixels on or below the diagonal line running from the upper left
+    to the lower right of the page.
     """
     return y >= (h/w)*x
 
@@ -115,8 +122,7 @@ def _p4_new_raster(w, h, **kwargs):
 
 def sample_page(w, h, fn, **kwargs):
     """
-    Create a sample page. Pages created by this function are output as
-    PBM raster images.
+    Create a sample page. Pages are in PBM P4 format.
 
     Arguments
     =========
