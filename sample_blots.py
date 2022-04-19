@@ -154,23 +154,28 @@ def sample_page(w, h, fn, **kwargs):
 
 # Shell Command Line Handler
 
-IN_PER_MM = 1/25.4 # inch to mm conversion
-SIZES = {
-    'a4': (210, 297),
-    'a5': (148, 210),
-    'f4': (215.9, 330),
-    'jis-b5': (182, 257),
-    'legal': (215.9, 355.6),
-    'letter': (215.9, 27.94),
-    'sac-16k': (195, 270),
-} # sizes are in mm only
+SIZES_600D = {
+    'a4': (4958, 7016),
+    'a5': (3500, 4958),
+    'f4': (5100, 7800), # aka 'flsa'
+    'jis-b5': (4300, 6075),
+    'legal': (5100, 8400),
+    'letter': (1799, 6600),
+    'sac-16k': (4608, 6375), # simply '16k' in Canon PPDs
+} # Sizes are in pixels at 600dpi. Figures taken from GhostScript 9.26,
+  # from /usr/share/ghostscript/9.26/Resource/Init/gs_statd.ps
+  #
+  # Pixel sizes calculated from PostScript points in bc with scale=15
+  # (1/72) * point_size * 600, then rounded to an integer.
+  #
+  # Size for 16K taken from Canon PPDs (CNCUPSLBP6018CAPTK.ppd)
 MODES_FNS = {
     'circle': _fn_circle,
     'triangle': _fn_half_triangle,
     'incr_runs': _fn_incr_runs,
     'incr_runs_2_pow_x': _fn_incr_runs_2_pow_x,
 }
-RESOLUTIONS_DPI = ('600', '300', '150') # TODO: must choices be strings?
+RESOLUTIONS_F = {'600': 1.0, '300': 0.5} # must choices be strings?
 
 if __name__ == '__main__':
     parser_spec = {
@@ -178,13 +183,13 @@ if __name__ == '__main__':
         'help': 'hi',
         'args': {
             '--size': {
-                'choices': SIZES.keys(),
+                'choices': SIZES_600D.keys(),
                 'required': True,
                 'help': 'test page size',
             },
             '--resolution': {
-                'choices': RESOLUTIONS_DPI,
-                'default': RESOLUTIONS_DPI[0],
+                'choices': RESOLUTIONS_F.keys(),
+                'default': next(iter(RESOLUTIONS_F.keys())),
                 'help': 'sample page resolution in DPI'
             },
             '--mode': {
@@ -209,10 +214,10 @@ if __name__ == '__main__':
             help=spec_arg.get('help'),
         )
     args = parser.parse_args()
-    px_per_mm = int(args.resolution) * IN_PER_MM
-    size = SIZES[args.size]
-    w = int(round(size[0], 2) * px_per_mm)
-    h = int(round(size[1], 2) * px_per_mm)
+    size = SIZES_600D[args.size]
+    fact = RESOLUTIONS_F[args.resolution]
+    w = int(round(size[0] * fact))
+    h = int(round(size[1] * fact))
     _do_out = lambda: sample_page(w, h, fn=MODES_FNS[args.mode])
     if args.out_file:
         with open(expanduser(args.out_file), mode='bx') as f:
