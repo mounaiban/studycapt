@@ -142,8 +142,9 @@ def sample_page(w, h, fn, **kwargs):
     is marked. Returning False clears the pixel.
 
     """
-    config = "# {}; params: {}".format(TITLE, kwargs)
-    out = bytes("P4\n{}\n{} {}\x0a".format(config, w, h), encoding='ascii')
+    comment = kwargs.get('comment', '')
+    desc = "# {} # {} #".format(TITLE, kwargs.get('comment', ''))
+    out = bytes("P4\n{}\n{} {}\x0a".format(desc, w, h), encoding='ascii')
     pixels = _p4_new_raster(w, h)
     bytes_per_row = ceil(w/8)
     for i in range(h):
@@ -201,6 +202,10 @@ if __name__ == '__main__':
             '--out_file': {
                 'default': None,
                 'help': 'path to output file; omit to use standard output'
+            },
+            '--comment': {
+                'default': '',
+                'help': 'one-liner comment to embed in output'
             }
         }
     }
@@ -219,7 +224,11 @@ if __name__ == '__main__':
     fact = RESOLUTIONS_F[args.resolution]
     w = int(round(size[0] * fact))
     h = int(round(size[1] * fact))
-    _do_out = lambda: sample_page(w, h, fn=MODES_FNS[args.mode])
+    if True in map(lambda x: x in args.comment, '\x0a\n'):
+        raise ValueError('newlines not permitted in comment')
+    _do_out = lambda: sample_page(
+        w, h, fn=MODES_FNS[args.mode], comment=args.comment
+    )
     if args.out_file:
         with open(expanduser(args.out_file), mode='bx') as f:
             f.write(_do_out())
