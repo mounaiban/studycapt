@@ -85,7 +85,7 @@ def _fn_half_diagonal(w, h, x, y, **kwargs):
 
 # Raster setup functions
 
-def _p4_set_pixel(bytemap, w, x, y, set_bit=True):
+def _p4_set_pixel(bytemap, bytes_per_row, w, x, y, set_bit=True):
     """
     Sets a single pixel in a list or array representing a P4 bitmap.
 
@@ -102,8 +102,6 @@ def _p4_set_pixel(bytemap, w, x, y, set_bit=True):
     * set_bit: set the pixel at (x,y) if True, clear it if False.
     """
     if (x >= w): raise IndexError('x out of bounds')
-    if (x*y)/8 > len(bytemap): raise IndexError('bit_pos past last bit')
-    bytes_per_row = ceil(w/8)
     col_byte_pos = y * bytes_per_row + x//PIXELS_PER_BYTE
     mask = 0x80 >> (x % 8)
     if set_bit:
@@ -147,9 +145,12 @@ def sample_page(w, h, fn, **kwargs):
     config = "# {}; params: {}".format(TITLE, kwargs)
     out = bytes("P4\n{}\n{} {}\x0a".format(config, w, h), encoding='ascii')
     pixels = _p4_new_raster(w, h)
+    bytes_per_row = ceil(w/8)
     for i in range(h):
         for j in range(w):
-            _p4_set_pixel(pixels, w, j, i, fn(w, h, j, i, **kwargs))
+            _p4_set_pixel(
+                pixels, bytes_per_row, w, j, i, fn(w, h, j, i, **kwargs)
+            )
     return out.join((b'', bytes(pixels)))
 
 # Shell Command Line Handler
