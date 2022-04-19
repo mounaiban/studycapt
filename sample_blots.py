@@ -76,12 +76,12 @@ def _fn_circle(w, h, x, y, **kwargs):
     """Plot a circle in the middle of the canvas"""
     return (x-w/2)**2 + (y-h/2)**2 <= (min(w,h)/2.5)**2
 
-def _fn_half_triangle(w, h, x, y, **kwargs):
+def _fn_half_diagonal(w, h, x, y, **kwargs):
     """
     Shade all pixels on the canvas on or below a diagonal line running from
     the upper left to the lower right.
     """
-    return y >= (min(w,h)/max(w,h))*x
+    return y >= (h/w)*x
 
 # Raster setup functions
 
@@ -171,7 +171,7 @@ SIZES_600D = {
   # Size for 16K taken from Canon PPDs (CNCUPSLBP6018CAPTK.ppd)
 MODES_FNS = {
     'circle': _fn_circle,
-    'triangle': _fn_half_triangle,
+    'half_diagonal': _fn_half_diagonal,
     'incr_runs': _fn_incr_runs,
     'incr_runs_2_pow_x': _fn_incr_runs_2_pow_x,
 }
