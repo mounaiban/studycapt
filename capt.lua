@@ -186,7 +186,6 @@ function capt_proto.dissector(buffer, pinfo, tree)
 		size = br_size:le_uint()
 		if bit32.btest(optype, TYPE_IS_OPCODE) then
 			t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
-			t_captcmd:add_le(pkt_size, br_size)
 			if size > buflen then
 				-- headers of segmented packets
 				local pn = pinfo.number
@@ -213,6 +212,7 @@ function run_sub_dissector(buffer, pinfo, tree)
 	br_opcode = buffer(0, 2)
 	br_size = buffer(2, 2)
 	size = br_size:le_uint()
+	tree:add_le(pkt_size, br_size)
 	opcode = br_opcode:le_uint()
 	optype = capt_opcode_type(opcode)
 	mne = opcodes_prn[opcode] or opcodes[opcode]
@@ -249,7 +249,6 @@ function run_sub_dissector(buffer, pinfo, tree)
 		-- unsegmented or desegmented packet
 		local br_parm = buffer(4, -1)
 		tree:add(params, br_parm)
-		tree:add_le(pkt_size, br_size)
 		-- select sub-dissector
 		if opcode == 0xA0A1 or opcode == 0xA0A8 or opcode == 0xE0A0 then
 			capt_stat_proto.dissector(br_parm:tvb(), pinfo, tree)
