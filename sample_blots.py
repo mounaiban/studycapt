@@ -48,6 +48,14 @@ PIXELS_PER_BYTE = 8
 # TODO: Should these return closures instead? Closures could potentially
 #  be faster by allowing us to skip kwargs lookups.
 
+def _fn_all_clear(w, h, x, y, **kwargs):
+    """Clear all pixels"""
+    return False
+
+def _fn_all_set(w, h, x, y, **kwargs):
+    """Set all pixels"""
+    return True
+
 def _fn_one_dot(w, h, x, y, **kwargs):
     """Plot a single dot on the canvas. Intended for debugging."""
     dot_x = kwargs.get('dot_x', 0)
@@ -89,6 +97,30 @@ def _fn_half_diagonal(w, h, x, y, **kwargs):
     to the lower right of the page.
     """
     return y >= (h/w)*x
+
+def _fn_half_horizontal(w, h, x, y, **kwargs):
+    """Shade all pixels on or below halfway down the page."""
+    return y >= h//2
+
+def _fn_mirrored_incr_runs(w, h, x, y, **kwargs):
+    """
+    Same as _fn_incr_runs(), but the pattern is mirrored on an axis halfway
+    down the page.
+
+    """
+    # NOTE: This function was actually an incorrect version of another
+    # function intended to be a variation _fn_incr_runs() that starts
+    # halfway down the page. It has been adopted beacuse it looks great.
+    #
+    k = y-(h//2)
+    return x%(k or 1) >= k//2
+
+def _fn_quarter_diagonal(w, h, x, y, **kwargs):
+    """
+    Shade all pixels on or below the diagonal line running from the upper left
+    to the midpoint between the top right and to bottom right of the page.
+    """
+    return y >= ((h/2)/w)*x
 
 # Raster setup functions
 
@@ -180,10 +212,15 @@ SIZES_600D = {
   # Size for 16K and 3x5in Index Cards taken from Canon PPDs
   # (CNCUPSLBP1120CAPTK.ppd)
 MODES_FNS = {
+    'all_clear': _fn_all_clear,
+    'all_set': _fn_all_set,
     'circle': _fn_circle,
     'half_diagonal': _fn_half_diagonal,
+    'half_horizontal': _fn_half_horizontal,
+    'mirrored_incr_runs': _fn_mirrored_incr_runs,
     'incr_runs': _fn_incr_runs,
     'incr_runs_2_pow_x': _fn_incr_runs_2_pow_x,
+    'quarter_diagonal': _fn_quarter_diagonal,
 }
 RESOLUTIONS_F = {'600': 1.0, '300': 0.5} # must choices be strings?
 
