@@ -167,6 +167,7 @@ SIZES_600D = {
     'a5': (3500, 4958),
     'f4': (5100, 7800), # aka 'flsa'
     'jis-b5': (4300, 6075),
+    'index-3x5': (1800, 3000),
     'legal': (5100, 8400),
     'letter': (1799, 6600),
     'sac-16k': (4608, 6375), # simply '16k' in Canon PPDs
@@ -176,7 +177,8 @@ SIZES_600D = {
   # Pixel sizes calculated from PostScript points in bc with scale=15
   # (1/72) * point_size * 600, then rounded to an integer.
   #
-  # Size for 16K taken from Canon PPDs (CNCUPSLBP6018CAPTK.ppd)
+  # Size for 16K and 3x5in Index Cards taken from Canon PPDs
+  # (CNCUPSLBP1120CAPTK.ppd)
 MODES_FNS = {
     'circle': _fn_circle,
     'half_diagonal': _fn_half_diagonal,
