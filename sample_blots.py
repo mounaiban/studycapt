@@ -32,8 +32,8 @@ Compression Architecture (SCoA) format primarily used by early-2000s and late-
 #   no redirection is used at the command line, the terminal will be flooded
 #   with binary data.
 #
-
 from argparse import ArgumentParser
+from collections import OrderedDict
 from math import ceil
 from os.path import expanduser
 from sys import argv, stdout
@@ -194,7 +194,7 @@ def sample_page(w, h, fn, **kwargs):
 
 # Shell Command Line Handler
 
-SIZES_600D = {
+SIZES_600D = OrderedDict({
     'a4': (4958, 7016),
     'a5': (3500, 4958),
     'f4': (5100, 7800), # aka 'flsa'
@@ -203,7 +203,7 @@ SIZES_600D = {
     'legal': (5100, 8400),
     'letter': (1799, 6600),
     'sac-16k': (4608, 6375), # simply '16k' in Canon PPDs
-} # Sizes are in pixels at 600dpi. Figures taken from GhostScript 9.26,
+})# Sizes are in pixels at 600dpi. Figures taken from GhostScript 9.26,
   # from /usr/share/ghostscript/9.26/Resource/Init/gs_statd.ps
   #
   # Pixel sizes calculated from PostScript points in bc with scale=15
@@ -211,7 +211,7 @@ SIZES_600D = {
   #
   # Size for 16K and 3x5in Index Cards taken from Canon PPDs
   # (CNCUPSLBP1120CAPTK.ppd)
-MODES_FNS = {
+MODES_FNS = OrderedDict({
     'all_clear': _fn_all_clear,
     'all_set': _fn_all_set,
     'circle': _fn_circle,
@@ -221,8 +221,8 @@ MODES_FNS = {
     'incr_runs': _fn_incr_runs,
     'incr_runs_2_pow_x': _fn_incr_runs_2_pow_x,
     'quarter_diagonal': _fn_quarter_diagonal,
-}
-RESOLUTIONS_F = {'600': 1.0, '300': 0.5} # must choices be strings?
+})
+RESOLUTIONS_F = OrderedDict({'600': 1.0, '300': 0.5}) # choices must be strings
 
 if __name__ == '__main__':
     parser_spec = {
