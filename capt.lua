@@ -361,37 +361,58 @@ end end
 
 -- 0xD0A0: CAPT_SET_PARM_PAGE
 local prefix = "capt_set_parm_page"
-local d0a0_paper_szid = ProtoField.uint8(prefix .. ".paper_size_id", "Paper Size ID", base.HEX)
+local d0a0_model_id = ProtoField.uint16(prefix .. ".device", "Model ID", base.HEX)
+local d0a0_toner_density_a = ProtoField.uint8(prefix .. ".toner_density_a", "Toner Density A", base.HEX)
+local d0a0_toner_density_b = ProtoField.uint8(prefix .. ".toner_density_b", "Toner Density B", base.HEX)
+local d0a0_toner_density_c = ProtoField.uint8(prefix .. ".toner_density_c", "Toner Density C", base.HEX)
+local d0a0_toner_density_d = ProtoField.uint8(prefix .. ".toner_density_d", "Toner Density D", base.HEX)
+local d0a0_paper_size_id = ProtoField.uint8(prefix .. ".paper_size_id", "Paper Size ID", base.HEX)
 local d0a0_paper_type = ProtoField.uint8(prefix .. ".paper_type", "Paper Type", base.HEX)
-local d0a0_bound_a = ProtoField.uint16(prefix .. ".bound_a", "Bound A", base.DEC)
-local d0a0_bound_b = ProtoField.uint16(prefix .. ".bound_b", "Bound B", base.DEC)
-local d0a0_raster_w = ProtoField.uint16(prefix .. ".raster_width", "Raster Width (bytes)", base.DEC)
+local d0a0_toner_saving = ProtoField.uint8(prefix .. ".toner_saving", "Toner Saving", base.HEX)
+local d0a0_margins_y = ProtoField.uint16(prefix .. ".margins_y", "Raster Top & Bottom Margins", base.DEC)
+local d0a0_margins_x = ProtoField.uint16(prefix .. ".margins_x", "Raster Left & Right Margins", base.DEC)
+local d0a0_raster_w = ProtoField.uint16(prefix .. ".raster_width", "Raster Bytes/Line", base.DEC)
 local d0a0_raster_h = ProtoField.uint16(prefix .. ".raster_height", "Raster Height (lines)", base.DEC)
 local d0a0_paper_w = ProtoField.uint16(prefix .. ".paper_width", "Paper Width (px)", base.DEC)
 local d0a0_paper_h = ProtoField.uint16(prefix .. ".paper_height", "Paper Height (px)", base.DEC)
+local d0a0_special = ProtoField.uint8(prefix .. ".special", "Special Print Mode", base.HEX)
 local d0a0_fuser_mode = ProtoField.uint8(prefix .. ".fuser_mode", "Fuser Mode", base.HEX)
 d0a0_proto = Proto("capt_prn_d0a0", "CAPT: Page Parameters")
 d0a0_proto.fields = {
-	d0a0_paper_szid,
+	d0a0_model_id,
+	d0a0_toner_density_a,
+	d0a0_toner_density_b,
+	d0a0_toner_density_c,
+	d0a0_toner_density_d,
+	d0a0_paper_size_id,
 	d0a0_paper_type,
-	d0a0_bound_a,
-	d0a0_bound_b,
+	d0a0_toner_saving,
+	d0a0_margins_y,
+	d0a0_margins_x,
 	d0a0_raster_w,
 	d0a0_raster_h,
 	d0a0_paper_w,
 	d0a0_paper_h,
+	d0a0_special,
 	d0a0_fuser_mode,
 }
 function d0a0_proto.dissector(buffer, pinfo, tree)
-	tree:add(d0a0_paper_szid, buffer(5,1))
+	tree:add(d0a0_model_id, buffer(2,2))
+	tree:add(d0a0_paper_size_id, buffer(4,1))
+	tree:add(d0a0_toner_density_a, buffer(8,1))
+	tree:add(d0a0_toner_density_b, buffer(9,1))
+	tree:add(d0a0_toner_density_c, buffer(10,1))
+	tree:add(d0a0_toner_density_d, buffer(11,1))
 	tree:add(d0a0_paper_type, buffer(12,1))
-	tree:add_le(d0a0_bound_a, buffer(22,2))
-	tree:add_le(d0a0_bound_b, buffer(24,2))
+	tree:add(d0a0_toner_saving, buffer(19,1))
+	tree:add_le(d0a0_margins_y, buffer(22,2))
+	tree:add_le(d0a0_margins_x, buffer(24,2))
 	tree:add_le(d0a0_raster_w, buffer(26,2))
 	tree:add_le(d0a0_raster_h, buffer(28,2))
 	tree:add_le(d0a0_paper_w, buffer(30,2))
 	tree:add_le(d0a0_paper_h, buffer(32,2))
 	if buffer:len() >= 34 then
+		tree:add(d0a0_special, buffer(34,1))
 		tree:add(d0a0_fuser_mode, buffer(36,1))
 	end
 end
