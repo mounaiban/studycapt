@@ -72,6 +72,13 @@ opcodes_prn = {
 	[0xD0A1] = "CAPT_SET_PARM_1",
 	[0xD0A2] = "CAPT_SET_PARM_2",
 	[0xD0A4] = "CAPT_SET_PARM_HISCOA",
+	[0xD0A5] = "CAPT_D0_A5", --
+	[0xD0A6] = "CAPT_D0_A6", --
+	[0xD0A7] = "CAPT_D0_A7", --
+	[0xD0B4] = "CAPT_D0_B4", -- unknown commands seen on LBP7200
+	[0xD0B5] = "CAPT_D0_B5", --
+	[0xD0B6] = "CAPT_D0_B6", --
+	[0xD0B7] = "CAPT_D0_B7", --
 	[0xD0A9] = "CAPT_SET_PARMS", -- for multi-command packets
 	[0xE0A2] = "CAPT_START_2",
 	[0xE0A3] = "CAPT_START_1",
@@ -501,6 +508,9 @@ dt_usb_product:add(0x04a926b9, capt_proto) -- LBP3310
 -- (in that order) into one 8-digit hex number, add the 0x in front.
 
 -- You can also remove any devices that you don't have or are not using.
+
+local dt_tcp = DissectorTable.get("tcp.port")
+dt_tcp:add(9100, capt_proto)
 
 local dt_usb = DissectorTable.get("usb.bulk")
 dt_usb:add(0x0, capt_proto)
