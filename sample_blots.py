@@ -212,15 +212,15 @@ SIZES_600D = OrderedDict({
   # Size for 16K and 3x5in Index Cards taken from Canon PPDs
   # (CNCUPSLBP1120CAPTK.ppd)
 MODES_FNS = OrderedDict({
-    'all_clear': _fn_all_clear,
-    'all_set': _fn_all_set,
+    'all-clear': _fn_all_clear,
+    'all-set': _fn_all_set,
     'circle': _fn_circle,
-    'half_diagonal': _fn_half_diagonal,
-    'half_horizontal': _fn_half_horizontal,
-    'mirrored_incr_runs': _fn_mirrored_incr_runs,
-    'incr_runs': _fn_incr_runs,
-    'incr_runs_2_pow_x': _fn_incr_runs_2_pow_x,
-    'quarter_diagonal': _fn_quarter_diagonal,
+    'half-diagonal': _fn_half_diagonal,
+    'half-horizontal': _fn_half_horizontal,
+    'mirrored-incr-runs': _fn_mirrored_incr_runs,
+    'incr-runs': _fn_incr_runs,
+    'incr-runs-2-pow-x': _fn_incr_runs_2_pow_x,
+    'quarter-diagonal': _fn_quarter_diagonal,
 })
 RESOLUTIONS_F = OrderedDict({'600': 1.0, '300': 0.5}) # choices must be strings
 
