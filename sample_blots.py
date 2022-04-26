@@ -222,7 +222,10 @@ MODES_FNS = OrderedDict({
     'incr-runs-2-pow-x': _fn_incr_runs_2_pow_x,
     'quarter-diagonal': _fn_quarter_diagonal,
 })
-RESOLUTIONS_F = OrderedDict({'600': 1.0, '300': 0.5}) # choices must be strings
+RESOLUTIONS_F = OrderedDict({
+    '600': 1.0, '300': 0.5, '150': 0.25, '75': 0.125, '37.5': 0.0625
+}) # PROTIP: Choices must be strings.
+# Lower resolutions are only intended for illustrative purposes
 
 if __name__ == '__main__':
     parser_spec = {
