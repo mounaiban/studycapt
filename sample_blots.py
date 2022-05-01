@@ -177,6 +177,23 @@ def _mk_fn_incr_runs_2_pow_x(w, h, **kwargs):
 
     return _fn_incr_runs_2_pow_x
 
+def _mk_fn_incr_runs(w, h, **kwargs):
+    img_w = w
+    img_h = h
+    v = kwargs.get('value', 0xFF)
+
+    def _fn_incr_runs(i, n):
+        if i + n > img_w * img_h: raise ValueError("index i out of bounds")
+
+        for x in range(n):
+            i_px = i + x
+            y = i_px/img_w
+            x = i_px%img_w
+            if x%(y or 1) >= y//2: yield v
+            else: yield 0x00
+
+    return _fn_incr_runs
+
 def _fn_incr_runs(w, h, x, y, **kwargs):
     """
     Plots runs of pixels seprated by equally-sized spaces. Runs increase
@@ -323,19 +340,21 @@ def _fn_quarter_diagonal(w, h, x, y, **kwargs):
 
 # Raster setup functions
 
-def _get_p5_raster(w, h, fn):
+def _get_p5_raster(w, h, fn, comment=''):
     """
     Generate PGM P5 raster w pixels wide, h pixels tall, using pixel
     function fn. Return raster as an iter.
 
     """
     LMAX = 255
-    header = bytes("P5\n{} {} {}\n".format(w, h, LMAX), encoding='ascii')
+    header = bytes(
+        "P5\n#{}\n{} {} {}\n".format(comment, w, h, LMAX), encoding='ascii'
+    )
     body = bytes(LMAX-x for x in fn(0, (w*h)-1))
     raster = chain(header, body)
     return (x for x in raster)
 
-def _get_p4_raster(w, h, fn):
+def _get_p4_raster(w, h, fn, comment=''):
     """
     Generate PBM P4 raster w pixels wide, h pixels tall, using pixel
     function fn. Return the reaster as an iter.
@@ -344,7 +363,9 @@ def _get_p4_raster(w, h, fn):
 
     """
     TMIN = 127
-    header = bytes("P4\n{} {}\n".format(w, h), encoding='ascii')
+    header = bytes(
+        "P4\n#{}\n{} {}\n".format(comment, w, h), encoding='ascii'
+    )
     rows = (_p4_get_row(w, fn(x, w), TMIN) for x in range(0,w*h, w))
     body = chain.from_iterable(r for r in rows)
     raster = chain(header, body)
@@ -457,15 +478,15 @@ SIZES_600D = OrderedDict({
   # Size for 16K and 3x5in Index Cards taken from Canon PPDs
   # (CNCUPSLBP1120CAPTK.ppd)
 MODES_FNS = OrderedDict({
-    'all-clear': _fn_all_clear,
-    'all-set': _fn_all_set,
-    'circle': _fn_circle,
-    'half-diagonal': _fn_half_diagonal,
-    'half-horizontal': _fn_half_horizontal,
-    'mirrored-incr-runs': _fn_mirrored_incr_runs,
-    'incr-runs': _fn_incr_runs,
-    'incr-runs-2-pow-x': _fn_incr_runs_2_pow_x,
-    'quarter-diagonal': _fn_quarter_diagonal,
+    'all-clear': _mk_fn_all_clear,
+    'all-set': _mk_fn_all_set,
+    'circle': _mk_fn_circle,
+    'half-diagonal': _mk_fn_half_diagonal,
+    'half-horizontal': _mk_fn_half_horizontal,
+    'mirrored-incr-runs': _mk_fn_mirrored_incr_runs,
+    'incr-runs': _mk_fn_incr_runs,
+    'incr-runs-2-pow-x': _mk_fn_incr_runs_2_pow_x,
+    'quarter-diagonal': _mk_fn_quarter_diagonal,
 })
 RESOLUTIONS_F = OrderedDict({
     '600': 1.0, '300': 0.5, '150': 0.25, '75': 0.125, '37.5': 0.0625
@@ -517,11 +538,11 @@ if __name__ == '__main__':
     fact = RESOLUTIONS_F[args.resolution]
     w = int(round(size[0] * fact))
     h = int(round(size[1] * fact))
+    mkfn = MODES_FNS[args.mode]
+    fn = mkfn(w, h)
     if True in map(lambda x: x in args.comment, '\x0a\n'):
         raise ValueError('newlines not permitted in comment')
-    _do_out = lambda: sample_page(
-        w, h, fn=MODES_FNS[args.mode], comment=args.comment
-    )
+    _do_out = lambda: bytes(_get_p4_raster(w, h, fn, args.comment))
     if args.out_file:
         with open(expanduser(args.out_file), mode='bx') as f:
             f.write(_do_out())
