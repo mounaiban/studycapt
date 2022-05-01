@@ -1,16 +1,17 @@
 #! /bin/python
 """
 RLE Test Page Generator
-Create a single P4 PBM raster with funky patterns for studying run-length
-encoding (RLE) techniques.
+Create rasters with funky patterns for studying run-length encoding (RLE)
+techniques. Rasters may be output in PBM (P4) or PGM (P5) format.
 
 The original purpose of this module was to reverse-engineer the Smart 
-Compression Architecture (SCoA) format primarily used by early-2000s and late-
-1990s Canon laser printers.
+Compression Architecture (SCoA) format primarily used by early-2000s and
+late-1990s Canon laser printers.
 
 """
 # Written by Moses Chong
 # First edition 2022/04/15
+# Second edition 2022/05/01
 #
 # PUBLIC DOMAIN, NO RIGHTS RESERVED
 #
@@ -25,8 +26,8 @@ Compression Architecture (SCoA) format primarily used by early-2000s and late-
 
 # NOTES
 # =====
-# * This script is currently very slow; generating a 600dpi A4-sized page takes
-#   several minutes on a 2016-vintage, low-end PC.
+# * This script is currently fairly slow; a 600dpi A4-sized page takes
+#   over a minute on a 2016-vintage low-end PC to create.
 #
 # * If no output file is specified as part of the --out_file= argmuent and
 #   no redirection is used at the command line, the terminal will be flooded
