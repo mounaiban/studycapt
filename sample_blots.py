@@ -41,6 +41,7 @@ from sys import argv, stdout
 
 TITLE = "Studycapt RLE Study"
 PIXELS_PER_BYTE = 8
+HEADER_FMT = "{}\n# Studycapt RLE Study\n# {}\n{} {}\n"
 
 # Plotting & Blotting Functions
 
@@ -348,7 +349,7 @@ def _get_p5_raster(w, h, fn, comment=''):
     """
     LMAX = 255
     header = bytes(
-        "P5\n#{}\n{} {} {}\n".format(comment, w, h, LMAX), encoding='ascii'
+        HEADER_FMT.format('P5', comment, w, h, LMAX), encoding='ascii'
     )
     body = bytes(LMAX-x for x in fn(0, (w*h)-1))
     raster = chain(header, body)
@@ -364,7 +365,7 @@ def _get_p4_raster(w, h, fn, comment=''):
     """
     TMIN = 127
     header = bytes(
-        "P4\n#{}\n{} {}\n".format(comment, w, h), encoding='ascii'
+        HEADER_FMT.format('P4', comment, w, h), encoding='ascii'
     )
     rows = (_p4_get_row(w, fn(x, w), TMIN) for x in range(0,w*h, w))
     body = chain.from_iterable(r for r in rows)
