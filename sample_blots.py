@@ -34,6 +34,7 @@ Compression Architecture (SCoA) format primarily used by early-2000s and late-
 #
 from argparse import ArgumentParser
 from collections import OrderedDict
+from itertools import chain
 from math import ceil
 from os.path import expanduser
 from sys import argv, stdout
@@ -43,18 +44,92 @@ PIXELS_PER_BYTE = 8
 
 # Plotting & Blotting Functions
 
-# Please see sample_page() below for function specifications
+# The functions in this section generate pixel data for the sample
+# rasters.
 #
-# TODO: Should these return closures instead? Closures could potentially
-#  be faster by allowing us to skip kwargs lookups.
+# --------
+# Creation
+# --------
+# For performance reasons, the functions are not hard-coded but
+# prepared at runtime from an "_mk" creator function. These functions
+# are run with the following conventions:
+#
+# _mk_fx(w, h, **kwargs)
+#
+# 'w' and 'h' are the width and height of the raster.
+#
+# Creator functions pre-calculate values that only need to be
+# calculated once.
+#
+# ---------------------
+# Usage and Conventions
+# ---------------------
+# These functions are run on every pixel in a raster, not unlike
+# a shader. The argument format is as follows:
+#
+# fx(i, n)
+#
+# * 'i' is the pixel's position (ordinal) in the canvas;
+#
+#     * i == 0 for the upper left most pixel,
+#
+#     * i == width - 1 for the upper right most pixel,
+#
+#     * i == width + 1 for the left most pixel on the following line
+#       and so on...
+#
+# * 'n' is the number of pixels to return following pixel i.
+#
+# Pixels are returned as an iter of integers, specifically a generator.
+# Functions work within an 8 bit/colour limit. No CAPT printer is known
+# to be capable of a deeper colour depth (e.g. 10-bit).
+#
+# Grey pixels are returned as an 8-bit value; bi-level pixels are set
+# when a value of 127 (0x7F) or higher is returned.
+#
+# Full-colour pixels are to packed in a 24-bit integer, identical in
+# structure to a hex code: primary red is 0xFF0000, primary green is
+# 0x00FF00 and primary blue is 0x0000FF.
+#
 
 def _fn_all_clear(w, h, x, y, **kwargs):
     """Clear all pixels"""
     return False
 
+def _mk_fn_all_clear(w, h, **kwargs):
+    """Create a function that yields pixels for a blank page"""
+
+    def _fn_all_clear(i, n):
+        img_w = w
+        img_h = h
+        if i + n > img_w * img_h: raise ValueError("index i out of bounds")
+        # Simplification of i + n - 1 > img_w * img_h
+        return (0x00 for x in range(n))
+
+    return _fn_all_clear
+
 def _fn_all_set(w, h, x, y, **kwargs):
     """Set all pixels"""
     return True
+
+def _mk_fn_all_set(w, h, **kwargs):
+    """
+    Create a function that yields pixels for page entirely set to
+    a shade of grey.
+
+    Keyword arguments: 'value' (int) - value of the pixel, 0x00 for
+    white, 0xFF for black.
+
+    """
+    v = kwargs.get('value', 0xFF)
+
+    def _fn_all_set(i, n):
+        img_w = w
+        img_h = h
+        if i + n > img_w * img_h: raise ValueError("index i out of bounds")
+        return (v for x in range(n))
+
+    return _fn_all_set
 
 def _fn_one_dot(w, h, x, y, **kwargs):
     """Plot a single dot on the canvas. Intended for debugging."""
@@ -75,6 +150,33 @@ def _fn_incr_runs_2_pow_x(w, h, x, y, **kwargs):
     run_ord = i_px - b
     return run_ord >= b//2
 
+def _mk_fn_incr_runs_2_pow_x(w, h, **kwargs):
+    """
+    Creates a function that plots runs of pixels that double in length
+    further down the page. Each run is accompanied by a space of an
+    equal number of pixels. Runs wrap around from right side of the to
+    the left of the next line.
+
+    Keyword arguments: 'value' (int) - value of the pixel, 0x00 for
+    white, 0xFF for black.
+    """
+
+    v = kwargs.get('value', 0xFF)
+    mt = kwargs.get('margin_top', 20)
+    img_w = w
+    img_h = h
+
+    def _fn_incr_runs_2_pow_x(i, n):
+        if i + n > img_w * img_h: raise ValueError("index i out of bounds")
+        for x in range(n):
+            i_px = i + x - (mt * img_w)
+            b = 2**(i_px.bit_length()-1) # bias
+            run_ord = i_px - b # pixel position in run
+            if run_ord >= b//2: yield v
+            else: yield 0x0
+
+    return _fn_incr_runs_2_pow_x
+
 def _fn_incr_runs(w, h, x, y, **kwargs):
     """
     Plots runs of pixels seprated by equally-sized spaces. Runs increase
@@ -91,6 +193,25 @@ def _fn_circle(w, h, x, y, **kwargs):
     """Plot a circle in the middle of the page"""
     return (x-w/2)**2 + (y-h/2)**2 <= (min(w,h)/2.5)**2
 
+def _mk_fn_circle(w, h, **kwargs):
+    """
+    Create a function that yields pixels for a page with a single circle
+    in the middle.
+    """
+    d_short = min(w,h)
+
+    def _fn_circle(i, n):
+        img_w = w
+        img_h = h
+        if n >= img_w * img_h: raise ValueError("index i out of bounds")
+        for j in range(n):
+            y = (i+j) // w
+            x = (i+j) % w
+            if (x-w/2)**2 + (y-h/2)**2 <= (d_short/2.5)**2: yield 0xFF
+            else: yield 0x00
+
+    return _fn_circle
+
 def _fn_half_diagonal(w, h, x, y, **kwargs):
     """
     Shade all pixels on or below the diagonal line running from the upper left
@@ -98,9 +219,47 @@ def _fn_half_diagonal(w, h, x, y, **kwargs):
     """
     return y >= (h/w)*x
 
+def _mk_fn_half_diagonal(w, h, **kwargs):
+
+    img_w = w
+    img_h = h
+    v = kwargs.get('value', 0xFF)
+
+    def _fn_half_diagonal(i, n):
+        if n >= img_w * img_h: raise ValueError("index i out of bounds")
+        for x in range(n):
+            i_px = i + x
+            if i_px/img_w >= (img_h/img_w) * (i_px % img_w): yield v
+            # PROTIP: threshold line eq. is y == m * x; m == img_h/img_w
+            else: yield 0x00
+
+    return _fn_half_diagonal
+
 def _fn_half_horizontal(w, h, x, y, **kwargs):
     """Shade all pixels on or below halfway down the page."""
     return y >= h//2
+
+def _mk_fn_half_horizontal(w, h, **kwargs):
+    """
+    Create a function that shades all pixels on or below halfway
+    down the page.
+
+    Keyword arguments: 'value' (int) - value of the pixel, 0x00 for
+    white, 0xFF for black.
+
+    """
+    img_w = w
+    img_h = h
+    v = kwargs.get('value', 0xFF)
+
+    def _fn_half_horizontal(i, n):
+        if n >= img_w * img_h: raise ValueError("index i out of bounds")
+        for x in range(n):
+            i_px = i + x
+            if i_px/img_w >= img_h//2: yield v
+            else: yield 0x00
+
+    return _fn_half_horizontal
 
 def _fn_mirrored_incr_runs(w, h, x, y, **kwargs):
     """
@@ -115,6 +274,46 @@ def _fn_mirrored_incr_runs(w, h, x, y, **kwargs):
     k = y-(h//2)
     return x%(k or 1) >= k//2
 
+def _mk_fn_mirrored_incr_runs(w, h, **kwargs):
+    img_w = w
+    img_h = h
+    v = kwargs.get('value', 0xFF)
+
+    def _fn_mirrored_incr_runs(i, n):
+        if n >= img_w * img_h: raise ValueError("index i out of bounds")
+        for x in range(n):
+            i_px = i + x
+            x = i_px % img_w
+            y = i_px // img_w
+            k = y - (h//2)
+            if x%(k or 1) >= k//2: yield v
+            else: yield 0x00
+
+    return _fn_mirrored_incr_runs
+
+def _mk_fn_quarter_diagonal(w, h, **kwargs):
+    """
+    Create a function that shades all pixels on or below a diagonal
+    line running from the upper left to midpoint between the upper
+    and lower right.
+
+    Keyword arguments: 'value' (int) - value of the pixel, 0x00 for
+    white, 0xFF for black.
+
+    """
+    img_w = w
+    img_h = h
+    v = kwargs.get('value', 0xFF)
+
+    def _fn_quarter_diagonal(i, n):
+        if n >= img_w * img_h: raise ValueError("index i out of bounds")
+        for x in range(n):
+            i_px = i + x
+            if (i_px/img_w) >= ((img_h//2)/img_w)*(i_px%img_w): yield v
+            else: yield 0x00
+
+    return _fn_quarter_diagonal
+
 def _fn_quarter_diagonal(w, h, x, y, **kwargs):
     """
     Shade all pixels on or below the diagonal line running from the upper left
@@ -123,6 +322,52 @@ def _fn_quarter_diagonal(w, h, x, y, **kwargs):
     return y >= ((h/2)/w)*x
 
 # Raster setup functions
+
+def _get_p5_raster(w, h, fn):
+    """
+    Generate PGM P5 raster w pixels wide, h pixels tall, using pixel
+    function fn. Return raster as an iter.
+
+    """
+    LMAX = 255
+    header = bytes("P5\n{} {} {}\n".format(w, h, LMAX), encoding='ascii')
+    body = bytes(LMAX-x for x in fn(0, (w*h)-1))
+    raster = chain(header, body)
+    return (x for x in raster)
+
+def _get_p4_raster(w, h, fn):
+    """
+    Generate PBM P4 raster w pixels wide, h pixels tall, using pixel
+    function fn. Return the reaster as an iter.
+
+    Any pixel of value 127 and above will be set.
+
+    """
+    TMIN = 127
+    header = bytes("P4\n{} {}\n".format(w, h), encoding='ascii')
+    rows = (_p4_get_row(w, fn(x, w), TMIN) for x in range(0,w*h, w))
+    body = chain.from_iterable(r for r in rows)
+    raster = chain(header, body)
+    return (x for x in raster)
+
+def _p4_get_row(w, v, t):
+    """
+    Format a row of pixel values 'v' for a P4 raster 'w' pixels wide.
+    Any pixel of value 't' and above will be set.
+
+    Pixels are returned as a row of packed ints (8-bit int where each
+    bit represents one pixel).
+
+    """
+    out = [0x0,] * ceil(w/8)
+    i = 0
+    for val in v:
+        if i >= w: return out
+        byte_pos = i//8
+        mask = 0x80 >> i%8
+        if val >= t: out[byte_pos] |= mask
+        i += 1
+    return out
 
 def _p4_set_pixel(bytemap, bytes_per_row, w, x, y, set_bit=True):
     """
