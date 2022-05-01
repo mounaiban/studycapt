@@ -72,6 +72,13 @@ opcodes_prn = {
 	[0xD0A1] = "CAPT_SET_PARM_1",
 	[0xD0A2] = "CAPT_SET_PARM_2",
 	[0xD0A4] = "CAPT_SET_PARM_HISCOA",
+	[0xD0A5] = "CAPT_D0_A5", --
+	[0xD0A6] = "CAPT_D0_A6", --
+	[0xD0A7] = "CAPT_D0_A7", --
+	[0xD0B4] = "CAPT_D0_B4", -- unknown commands seen on LBP7200
+	[0xD0B5] = "CAPT_D0_B5", --
+	[0xD0B6] = "CAPT_D0_B6", --
+	[0xD0B7] = "CAPT_D0_B7", --
 	[0xD0A9] = "CAPT_SET_PARMS", -- for multi-command packets
 	[0xE0A2] = "CAPT_START_2",
 	[0xE0A3] = "CAPT_START_1",
@@ -179,7 +186,6 @@ function capt_proto.dissector(buffer, pinfo, tree)
 		size = br_size:le_uint()
 		if bit32.btest(optype, TYPE_IS_OPCODE) then
 			t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
-			t_captcmd:add_le(pkt_size, br_size)
 			if size > buflen then
 				-- headers of segmented packets
 				local pn = pinfo.number
@@ -206,6 +212,7 @@ function run_sub_dissector(buffer, pinfo, tree)
 	br_opcode = buffer(0, 2)
 	br_size = buffer(2, 2)
 	size = br_size:le_uint()
+	tree:add_le(pkt_size, br_size)
 	opcode = br_opcode:le_uint()
 	optype = capt_opcode_type(opcode)
 	mne = opcodes_prn[opcode] or opcodes[opcode]
@@ -242,7 +249,6 @@ function run_sub_dissector(buffer, pinfo, tree)
 		-- unsegmented or desegmented packet
 		local br_parm = buffer(4, -1)
 		tree:add(params, br_parm)
-		tree:add_le(pkt_size, br_size)
 		-- select sub-dissector
 		if opcode == 0xA0A1 or opcode == 0xA0A8 or opcode == 0xE0A0 then
 			capt_stat_proto.dissector(br_parm:tvb(), pinfo, tree)
@@ -280,7 +286,7 @@ local prefix = "capt_ident"
 local a1a1_mag_info_a = ProtoField.uint16(prefix .. ".magic_device_info_a", "Device Info A(?)", base.HEX)
 local a1a1_mag_info_b = ProtoField.uint16(prefix .. ".magic_device_info_b", "Device Info B(?)", base.HEX)
 local a1a1_mag_info_c = ProtoField.uint16(prefix .. ".magic_device_info_c", "Device Info C(?)", base.HEX)
-local a1a1_buffer_size = ProtoField.uint16(prefix .. ".buffer_size", "Buffer Size(?)")
+local a1a1_buffer_size = ProtoField.uint16(prefix .. ".buffer_size", "Buffer Size (bytes)(?)")
 local a1a1_buffers = ProtoField.uint16(prefix .. ".buffers", "Buffer Count(?)")
 local a1a1_throughput = ProtoField.uint16(prefix .. ".throughput", "Throughput/Maximum Print Speed (pages/hr)")
 local a1a1_w_max = ProtoField.uint16(prefix .. ".w_max", "Maximum Paper Width (x0.1 mm)")
@@ -295,8 +301,8 @@ local a1a1_npt = ProtoField.uint8(prefix .. ".npt", "Top Non-printable Margin (x
 local a1a1_npb = ProtoField.uint8(prefix .. ".npb", "Bottom Non-printable Margin(x0.1 mm)")
 local a1a1_npl = ProtoField.uint8(prefix .. ".npl", "Left Non-printable Margin(x0.1 mm)")
 local a1a1_npr = ProtoField.uint8(prefix .. ".npr", "Right Non-printable Margin (x0.1 mm)")
-local a1a1_rx = ProtoField.uint16(prefix .. ".rx", "X Resolution(?)")
-local a1a1_ry = ProtoField.uint16(prefix .. ".ry", "Y Resolution(?)")
+local a1a1_rx = ProtoField.uint16(prefix .. ".rx", "X Resolution (dpi)(?)")
+local a1a1_ry = ProtoField.uint16(prefix .. ".ry", "Y Resolution (dpi)(?)")
 local a1a1_capt_ver = ProtoField.uint16(prefix .. ".capt_ver", "CAPT Version")
 local a1a1_capt3_info = ProtoField.string(prefix .. ".magic_capt_3_info", "CAPT 3.0 Information(?)")
 a1a1_proto = Proto(prefix, "CAPT: Printer Information")
@@ -354,37 +360,58 @@ end end
 
 -- 0xD0A0: CAPT_SET_PARM_PAGE
 local prefix = "capt_set_parm_page"
-local d0a0_paper_szid = ProtoField.uint8(prefix .. ".paper_size_id", "Paper Size ID", base.HEX)
+local d0a0_model_id = ProtoField.uint16(prefix .. ".device", "Model ID", base.HEX)
+local d0a0_toner_density_a = ProtoField.uint8(prefix .. ".toner_density_a", "Toner Density A", base.HEX)
+local d0a0_toner_density_b = ProtoField.uint8(prefix .. ".toner_density_b", "Toner Density B", base.HEX)
+local d0a0_toner_density_c = ProtoField.uint8(prefix .. ".toner_density_c", "Toner Density C", base.HEX)
+local d0a0_toner_density_d = ProtoField.uint8(prefix .. ".toner_density_d", "Toner Density D", base.HEX)
+local d0a0_paper_size_id = ProtoField.uint8(prefix .. ".paper_size_id", "Paper Size ID", base.HEX)
 local d0a0_paper_type = ProtoField.uint8(prefix .. ".paper_type", "Paper Type", base.HEX)
-local d0a0_bound_a = ProtoField.uint16(prefix .. ".bound_a", "Bound A", base.DEC)
-local d0a0_bound_b = ProtoField.uint16(prefix .. ".bound_b", "Bound B", base.DEC)
-local d0a0_raster_w = ProtoField.uint16(prefix .. ".raster_width", "Raster Width (bytes)", base.DEC)
+local d0a0_toner_saving = ProtoField.uint8(prefix .. ".toner_saving", "Toner Saving", base.HEX)
+local d0a0_margins_y = ProtoField.uint16(prefix .. ".margins_y", "Raster Top & Bottom Margins", base.DEC)
+local d0a0_margins_x = ProtoField.uint16(prefix .. ".margins_x", "Raster Left & Right Margins", base.DEC)
+local d0a0_raster_w = ProtoField.uint16(prefix .. ".raster_width", "Raster Bytes/Line", base.DEC)
 local d0a0_raster_h = ProtoField.uint16(prefix .. ".raster_height", "Raster Height (lines)", base.DEC)
 local d0a0_paper_w = ProtoField.uint16(prefix .. ".paper_width", "Paper Width (px)", base.DEC)
 local d0a0_paper_h = ProtoField.uint16(prefix .. ".paper_height", "Paper Height (px)", base.DEC)
+local d0a0_special = ProtoField.uint8(prefix .. ".special", "Special Print Mode", base.HEX)
 local d0a0_fuser_mode = ProtoField.uint8(prefix .. ".fuser_mode", "Fuser Mode", base.HEX)
 d0a0_proto = Proto("capt_prn_d0a0", "CAPT: Page Parameters")
 d0a0_proto.fields = {
-	d0a0_paper_szid,
+	d0a0_model_id,
+	d0a0_toner_density_a,
+	d0a0_toner_density_b,
+	d0a0_toner_density_c,
+	d0a0_toner_density_d,
+	d0a0_paper_size_id,
 	d0a0_paper_type,
-	d0a0_bound_a,
-	d0a0_bound_b,
+	d0a0_toner_saving,
+	d0a0_margins_y,
+	d0a0_margins_x,
 	d0a0_raster_w,
 	d0a0_raster_h,
 	d0a0_paper_w,
 	d0a0_paper_h,
+	d0a0_special,
 	d0a0_fuser_mode,
 }
 function d0a0_proto.dissector(buffer, pinfo, tree)
-	tree:add(d0a0_paper_szid, buffer(5,1))
+	tree:add(d0a0_model_id, buffer(2,2))
+	tree:add(d0a0_paper_size_id, buffer(4,1))
+	tree:add(d0a0_toner_density_a, buffer(8,1))
+	tree:add(d0a0_toner_density_b, buffer(9,1))
+	tree:add(d0a0_toner_density_c, buffer(10,1))
+	tree:add(d0a0_toner_density_d, buffer(11,1))
 	tree:add(d0a0_paper_type, buffer(12,1))
-	tree:add_le(d0a0_bound_a, buffer(22,2))
-	tree:add_le(d0a0_bound_b, buffer(24,2))
+	tree:add(d0a0_toner_saving, buffer(19,1))
+	tree:add_le(d0a0_margins_y, buffer(22,2))
+	tree:add_le(d0a0_margins_x, buffer(24,2))
 	tree:add_le(d0a0_raster_w, buffer(26,2))
 	tree:add_le(d0a0_raster_h, buffer(28,2))
 	tree:add_le(d0a0_paper_w, buffer(30,2))
 	tree:add_le(d0a0_paper_h, buffer(32,2))
 	if buffer:len() >= 34 then
+		tree:add(d0a0_special, buffer(34,1))
 		tree:add(d0a0_fuser_mode, buffer(36,1))
 	end
 end
@@ -501,6 +528,9 @@ dt_usb_product:add(0x04a926b9, capt_proto) -- LBP3310
 -- (in that order) into one 8-digit hex number, add the 0x in front.
 
 -- You can also remove any devices that you don't have or are not using.
+
+local dt_tcp = DissectorTable.get("tcp.port")
+dt_tcp:add(9100, capt_proto)
 
 local dt_usb = DissectorTable.get("usb.bulk")
 dt_usb:add(0x0, capt_proto)
