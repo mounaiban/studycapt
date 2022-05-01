@@ -93,10 +93,6 @@ HEADER_FMT = "{}\n# Studycapt RLE Study\n# {}\n{} {}\n"
 # 0x00FF00 and primary blue is 0x0000FF.
 #
 
-def _fn_all_clear(w, h, x, y, **kwargs):
-    """Clear all pixels"""
-    return False
-
 def _mk_fn_all_clear(w, h, **kwargs):
     """Create a function that yields pixels for a blank page"""
 
@@ -108,10 +104,6 @@ def _mk_fn_all_clear(w, h, **kwargs):
         return (0x00 for x in range(n))
 
     return _fn_all_clear
-
-def _fn_all_set(w, h, x, y, **kwargs):
-    """Set all pixels"""
-    return True
 
 def _mk_fn_all_set(w, h, **kwargs):
     """
@@ -131,25 +123,6 @@ def _mk_fn_all_set(w, h, **kwargs):
         return (v for x in range(n))
 
     return _fn_all_set
-
-def _fn_one_dot(w, h, x, y, **kwargs):
-    """Plot a single dot on the canvas. Intended for debugging."""
-    dot_x = kwargs.get('dot_x', 0)
-    dot_y = kwargs.get('dot_y', 0)
-    return x == dot_x and y == dot_y
-
-def _fn_incr_runs_2_pow_x(w, h, x, y, **kwargs):
-    """
-    Plots runs of pixels that double in size further down the page.
-    Each run follows a space of an equal number of pixels. Runs and
-    spaces that reach the right side of the page continue on the
-    next line from the left.
-
-    """
-    i_px = y*w + x
-    b = 2**(i_px.bit_length()-1) # bias
-    run_ord = i_px - b
-    return run_ord >= b//2
 
 def _mk_fn_incr_runs_2_pow_x(w, h, **kwargs):
     """
@@ -195,22 +168,6 @@ def _mk_fn_incr_runs(w, h, **kwargs):
 
     return _fn_incr_runs
 
-def _fn_incr_runs(w, h, x, y, **kwargs):
-    """
-    Plots runs of pixels seprated by equally-sized spaces. Runs increase
-    gradually further down the page. Runs end at the right side of the
-    page.
-
-    Every other row has pixel runs that are exactly one pixel longer
-    than spaces on the same line.
-
-    """
-    return x%(y or 1) >= y//2
-
-def _fn_circle(w, h, x, y, **kwargs):
-    """Plot a circle in the middle of the page"""
-    return (x-w/2)**2 + (y-h/2)**2 <= (min(w,h)/2.5)**2
-
 def _mk_fn_circle(w, h, **kwargs):
     """
     Create a function that yields pixels for a page with a single circle
@@ -230,13 +187,6 @@ def _mk_fn_circle(w, h, **kwargs):
 
     return _fn_circle
 
-def _fn_half_diagonal(w, h, x, y, **kwargs):
-    """
-    Shade all pixels on or below the diagonal line running from the upper left
-    to the lower right of the page.
-    """
-    return y >= (h/w)*x
-
 def _mk_fn_half_diagonal(w, h, **kwargs):
 
     img_w = w
@@ -252,10 +202,6 @@ def _mk_fn_half_diagonal(w, h, **kwargs):
             else: yield 0x00
 
     return _fn_half_diagonal
-
-def _fn_half_horizontal(w, h, x, y, **kwargs):
-    """Shade all pixels on or below halfway down the page."""
-    return y >= h//2
 
 def _mk_fn_half_horizontal(w, h, **kwargs):
     """
@@ -278,19 +224,6 @@ def _mk_fn_half_horizontal(w, h, **kwargs):
             else: yield 0x00
 
     return _fn_half_horizontal
-
-def _fn_mirrored_incr_runs(w, h, x, y, **kwargs):
-    """
-    Same as _fn_incr_runs(), but the pattern is mirrored on an axis halfway
-    down the page.
-
-    """
-    # NOTE: This function was actually an incorrect version of another
-    # function intended to be a variation _fn_incr_runs() that starts
-    # halfway down the page. It has been adopted beacuse it looks great.
-    #
-    k = y-(h//2)
-    return x%(k or 1) >= k//2
 
 def _mk_fn_mirrored_incr_runs(w, h, **kwargs):
     img_w = w
@@ -331,13 +264,6 @@ def _mk_fn_quarter_diagonal(w, h, **kwargs):
             else: yield 0x00
 
     return _fn_quarter_diagonal
-
-def _fn_quarter_diagonal(w, h, x, y, **kwargs):
-    """
-    Shade all pixels on or below the diagonal line running from the upper left
-    to the midpoint between the top right and to bottom right of the page.
-    """
-    return y >= ((h/2)/w)*x
 
 # Raster setup functions
 
@@ -391,74 +317,6 @@ def _p4_get_row(w, v, t):
         if val >= t: out[byte_pos] |= mask
         i += 1
     return out
-
-def _p4_set_pixel(bytemap, bytes_per_row, w, x, y, set_bit=True):
-    """
-    Sets a single pixel in a list or array representing a P4 bitmap.
-
-    Arguments
-    =========
-
-    * bytemap: PBM P4 bitmap as a byte array
-
-    * w: width of the bitmap (important for correct placement)
-
-    * x, y: coordinates of the pixel; use video buffer coordinates (upper
-      left is (0,0).
-
-    * set_bit: set the pixel at (x,y) if True, clear it if False.
-    """
-    if (x >= w): raise IndexError('x out of bounds')
-    col_byte_pos = y * bytes_per_row + x//PIXELS_PER_BYTE
-    mask = 0x80 >> (x % 8)
-    if set_bit:
-        bytemap[col_byte_pos] |= mask
-    if not set_bit:
-        mask ^= 0xFF
-        bytemap[col_byte_pos] &= mask
-
-def _p4_new_raster(w, h, **kwargs):
-    return [0x0,] * (ceil(w/8)*h)
-
-def sample_page(w, h, fn, **kwargs):
-    """
-    Create a sample page. Pages are in PBM P4 format.
-
-    Arguments
-    =========
-    
-    * w, h: width and height of the page
-
-    * fn: function to create pattern
-
-    Function Specs
-    ==============
-
-    The function fn is run once for every pixel in the bitmap. The argument
-    format is as follows: fn(w, h, x, y, **kwargs). 
-
-    * w, h: width and height of the bitmap
-
-    * x, y: coordinates of the pixel on the bitmap
-
-    * kwargs: additional keyword arguments; all kwargs in this function are
-      passed to fn
-
-    If the function returns True given the values of the arguments, the pixel
-    is marked. Returning False clears the pixel.
-
-    """
-    comment = kwargs.get('comment', '')
-    desc = "# {} # {} #".format(TITLE, kwargs.get('comment', ''))
-    out = bytes("P4\n{}\n{} {}\x0a".format(desc, w, h), encoding='ascii')
-    pixels = _p4_new_raster(w, h)
-    bytes_per_row = ceil(w/8)
-    for i in range(h):
-        for j in range(w):
-            _p4_set_pixel(
-                pixels, bytes_per_row, w, j, i, fn(w, h, j, i, **kwargs)
-            )
-    return out.join((b'', bytes(pixels)))
 
 # Shell Command Line Handler
 

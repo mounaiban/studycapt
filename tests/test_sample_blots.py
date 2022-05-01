@@ -18,29 +18,5 @@ RLE Test Page Generator (sample_blots.py) Unit Tests
 from unittest import TestCase
 from sample_blots import _p4_new_raster, _p4_set_pixel
 
-class SampleCanvasTests(TestCase):
-
-    def test_p4_new_raster(self):
-        test_cases = (
-            ({'w': 8, 'h': 8}, [0x0,]*8),
-            ({'w': 9, 'h': 8}, [0x0,]*16),
-        ) # format: (args, expected_output)
-        for a, r in test_cases:
-            with self.subTest(a=a, r=r):
-                self.assertEqual(_p4_new_raster(**a), r)
-
-    def test_p4_set_pixel_corners(self):
-        test_cases = (
-            ({'w': 8, 'h': 8}, [0x81, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x81]),
-            ({'w': 5, 'h': 4}, [0x88, 0x0, 0x0, 0x88]),
-            ({'w': 4, 'h': 5}, [0x90, 0x0, 0x0, 0x0, 0x90]),
-        )
-        for a, r in test_cases:
-            with self.subTest(a=a):
-                raster = _p4_new_raster(**a)
-                _p4_set_pixel(raster, a['w'], 0, 0)
-                _p4_set_pixel(raster, a['w'], 0, a['h']-1)
-                _p4_set_pixel(raster, a['w'], a['w']-1, 0)
-                _p4_set_pixel(raster, a['w'], a['w']-1, a['h']-1)
-                self.assertEqual(raster, r)
+# There are no tests at this time, thanks for checking!
 
