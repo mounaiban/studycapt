@@ -348,8 +348,9 @@ def _get_p5_raster(w, h, fn, comment=''):
 
     """
     LMAX = 255
+    h_maxg = '{} {}'.format(h, LMAX) # height and max grey value in one
     header = bytes(
-        HEADER_FMT.format('P5', comment, w, h, LMAX), encoding='ascii'
+        HEADER_FMT.format('P5', comment, w, h_maxg), encoding='ascii'
     )
     body = bytes(LMAX-x for x in fn(0, (w*h)-1))
     raster = chain(header, body)
@@ -489,6 +490,10 @@ MODES_FNS = OrderedDict({
     'incr-runs-2-pow-x': _mk_fn_incr_runs_2_pow_x,
     'quarter-diagonal': _mk_fn_quarter_diagonal,
 })
+RASTER_OUT_FNS = OrderedDict({
+    'p4': _get_p4_raster,
+    'p5': _get_p5_raster
+})
 RESOLUTIONS_F = OrderedDict({
     '600': 1.0, '300': 0.5, '150': 0.25, '75': 0.125, '37.5': 0.0625
 }) # PROTIP: Choices must be strings.
@@ -508,6 +513,11 @@ if __name__ == '__main__':
                 'choices': RESOLUTIONS_F.keys(),
                 'default': next(iter(RESOLUTIONS_F.keys())),
                 'help': 'sample page resolution in DPI'
+            },
+            '--format': {
+                'choices': RASTER_OUT_FNS.keys(),
+                'default': next(iter(RASTER_OUT_FNS.keys())),
+                'help': 'sample page raster format',
             },
             '--mode': {
                 'choices': MODES_FNS.keys(),
@@ -539,11 +549,12 @@ if __name__ == '__main__':
     fact = RESOLUTIONS_F[args.resolution]
     w = int(round(size[0] * fact))
     h = int(round(size[1] * fact))
-    mkfn = MODES_FNS[args.mode]
-    fn = mkfn(w, h)
+    mkfn_px = MODES_FNS[args.mode]
+    fn_px = mkfn_px(w, h)
+    fn_rast = RASTER_OUT_FNS[args.format]
     if True in map(lambda x: x in args.comment, '\x0a\n'):
         raise ValueError('newlines not permitted in comment')
-    _do_out = lambda: bytes(_get_p4_raster(w, h, fn, args.comment))
+    _do_out = lambda: bytes(fn_rast(w, h, fn_px, args.comment))
     if args.out_file:
         with open(expanduser(args.out_file), mode='bx') as f:
             f.write(_do_out())
