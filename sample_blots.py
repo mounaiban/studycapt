@@ -41,8 +41,11 @@ from os.path import expanduser
 from sys import argv, stdout
 
 TITLE = "Studycapt RLE Study"
-PIXELS_PER_BYTE = 8
 HEADER_FMT = "{}\n# Studycapt RLE Study\n# {}\n{} {}\n"
+PIXELS_PER_BYTE = 8
+PX_VALUE_DEFAULT = 127
+P4_MIN_VALUE = 127
+P5_MAX_VALUE = 255
 
 # Plotting & Blotting Functions
 
@@ -115,7 +118,7 @@ def _mk_fn_all_set(w, h, **kwargs):
     white, 0xFF for black.
 
     """
-    v = kwargs.get('value', 0xFF)
+    v = kwargs.get('value', PX_VALUE_DEFAULT)
 
     def _fn_all_set(i, n):
         img_w = w
@@ -136,7 +139,7 @@ def _mk_fn_incr_runs_2_pow_x(w, h, **kwargs):
     white, 0xFF for black.
     """
 
-    v = kwargs.get('value', 0xFF)
+    v = kwargs.get('value', PX_VALUE_DEFAULT)
     mt = kwargs.get('margin_top', 20)
     img_w = w
     img_h = h
@@ -155,7 +158,7 @@ def _mk_fn_incr_runs_2_pow_x(w, h, **kwargs):
 def _mk_fn_incr_runs(w, h, **kwargs):
     img_w = w
     img_h = h
-    v = kwargs.get('value', 0xFF)
+    v = kwargs.get('value', PX_VALUE_DEFAULT)
 
     def _fn_incr_runs(i, n):
         if i + n > img_w * img_h: raise ValueError("index i out of bounds")
@@ -175,6 +178,7 @@ def _mk_fn_circle(w, h, **kwargs):
     in the middle.
     """
     d_short = min(w,h)
+    v = kwargs.get('value', PX_VALUE_DEFAULT)
 
     def _fn_circle(i, n):
         img_w = w
@@ -183,7 +187,7 @@ def _mk_fn_circle(w, h, **kwargs):
         for j in range(n):
             y = (i+j) // w
             x = (i+j) % w
-            if (x-w/2)**2 + (y-h/2)**2 <= (d_short/2.5)**2: yield 0xFF
+            if (x-w/2)**2 + (y-h/2)**2 <= (d_short/2.5)**2: yield v
             else: yield 0x00
 
     return _fn_circle
@@ -192,7 +196,7 @@ def _mk_fn_half_diagonal(w, h, **kwargs):
 
     img_w = w
     img_h = h
-    v = kwargs.get('value', 0xFF)
+    v = kwargs.get('value', PX_VALUE_DEFAULT)
 
     def _fn_half_diagonal(i, n):
         if n >= img_w * img_h: raise ValueError("index i out of bounds")
@@ -215,7 +219,7 @@ def _mk_fn_half_horizontal(w, h, **kwargs):
     """
     img_w = w
     img_h = h
-    v = kwargs.get('value', 0xFF)
+    v = kwargs.get('value', PX_VALUE_DEFAULT)
 
     def _fn_half_horizontal(i, n):
         if n >= img_w * img_h: raise ValueError("index i out of bounds")
@@ -229,7 +233,7 @@ def _mk_fn_half_horizontal(w, h, **kwargs):
 def _mk_fn_mirrored_incr_runs(w, h, **kwargs):
     img_w = w
     img_h = h
-    v = kwargs.get('value', 0xFF)
+    v = kwargs.get('value', PX_VALUE_DEFAULT)
 
     def _fn_mirrored_incr_runs(i, n):
         if n >= img_w * img_h: raise ValueError("index i out of bounds")
@@ -255,7 +259,7 @@ def _mk_fn_quarter_diagonal(w, h, **kwargs):
     """
     img_w = w
     img_h = h
-    v = kwargs.get('value', 0xFF)
+    v = kwargs.get('value', PX_VALUE_DEFAULT)
 
     def _fn_quarter_diagonal(i, n):
         if n >= img_w * img_h: raise ValueError("index i out of bounds")
@@ -274,12 +278,11 @@ def _get_p5_raster(w, h, fn, comment=''):
     function fn. Return raster as an iter.
 
     """
-    LMAX = 255
-    h_maxg = '{} {}'.format(h, LMAX) # height and max grey value in one
+    h_maxg = '{} {}'.format(h, P5_MAX_VALUE) # height and max grey value in one
     header = bytes(
         HEADER_FMT.format('P5', comment, w, h_maxg), encoding='ascii'
     )
-    body = bytes(LMAX-x for x in fn(0, (w*h)-1))
+    body = bytes(P5_MAX_VALUE-x for x in fn(0, (w*h)-1))
     raster = chain(header, body)
     return (x for x in raster)
 
@@ -291,11 +294,10 @@ def _get_p4_raster(w, h, fn, comment=''):
     Any pixel of value 127 and above will be set.
 
     """
-    TMIN = 127
     header = bytes(
         HEADER_FMT.format('P4', comment, w, h), encoding='ascii'
     )
-    rows = (_p4_get_row(w, fn(x, w), TMIN) for x in range(0,w*h, w))
+    rows = (_p4_get_row(w, fn(x, w), P4_MIN_VALUE) for x in range(0,w*h, w))
     body = chain.from_iterable(r for r in rows)
     raster = chain(header, body)
     return (x for x in raster)
@@ -387,6 +389,10 @@ if __name__ == '__main__':
                 'default': None,
                 'help': 'path to output file; omit to use standard output'
             },
+            '--p5_value': {
+                'default': '127',
+                'help': 'grey value to use in P5 mode (0-255)'
+            },
             '--comment': {
                 'default': '',
                 'help': 'one-liner comment to embed in output'
@@ -409,7 +415,8 @@ if __name__ == '__main__':
     w = int(round(size[0] * fact))
     h = int(round(size[1] * fact))
     mkfn_px = MODES_FNS[args.mode]
-    fn_px = mkfn_px(w, h)
+    val = int(args.p5_value)
+    fn_px = mkfn_px(w, h, value=val)
     fn_rast = RASTER_OUT_FNS[args.format]
     if True in map(lambda x: x in args.comment, '\x0a\n'):
         raise ValueError('newlines not permitted in comment')
