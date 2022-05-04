@@ -128,6 +128,22 @@ def _mk_fn_all_set(w, h, **kwargs):
 
     return _fn_all_set
 
+def _mk_fn_gradient_horizontal(w, h, **kwargs):
+    """
+    Creates a function to output a horizontal, linear, white-to-black
+    greyscale gradient. Intended for use with P5 output only.
+
+    """
+    def _fn_gradient_horizontal(i, n):
+        img_w = w
+        img_h = h
+        if i + n > img_w * img_h: raise ValueError("index i out of bounds")
+        for j in range(n):
+            y = (i+j) // img_h
+            yield int(P5_MAX_VALUE * y/img_h)
+
+    return _fn_gradient_horizontal
+
 def _mk_fn_incr_runs_2_pow_x(w, h, **kwargs):
     """
     Creates a function that plots runs of pixels that double in length
@@ -344,6 +360,7 @@ MODES_FNS = OrderedDict({
     'all-clear': _mk_fn_all_clear,
     'all-set': _mk_fn_all_set,
     'circle': _mk_fn_circle,
+    'gradient-horizontal': _mk_fn_gradient_horizontal,
     'half-diagonal': _mk_fn_half_diagonal,
     'half-horizontal': _mk_fn_half_horizontal,
     'mirrored-incr-runs': _mk_fn_mirrored_incr_runs,
