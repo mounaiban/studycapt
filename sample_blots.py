@@ -195,6 +195,8 @@ def _mk_fn_circle(w, h, **kwargs):
     """
     d_short = min(w,h)
     v = kwargs.get('value', PX_VALUE_DEFAULT)
+    gx = kwargs.get('grate_x', w+1)
+    gy = kwargs.get('grate_y', h+1)
 
     def _fn_circle(i, n):
         img_w = w
@@ -203,7 +205,8 @@ def _mk_fn_circle(w, h, **kwargs):
         for j in range(n):
             y = (i+j) // w
             x = (i+j) % w
-            if (x-w/2)**2 + (y-h/2)**2 <= (d_short/2.5)**2: yield v
+            if (x-w/2)**2 + (y-h/2)**2 <= (d_short/2.5)**2 and x%gx and y%gy:
+                yield v
             else: yield 0x00
 
     return _fn_circle
@@ -212,13 +215,18 @@ def _mk_fn_half_diagonal(w, h, **kwargs):
 
     img_w = w
     img_h = h
+    gx = kwargs.get('grate_x', w+1)
+    gy = kwargs.get('grate_y', h+1)
     v = kwargs.get('value', PX_VALUE_DEFAULT)
 
     def _fn_half_diagonal(i, n):
         if n >= img_w * img_h: raise ValueError("index i out of bounds")
         for x in range(n):
             i_px = i + x
-            if i_px/img_w >= (img_h/img_w) * (i_px % img_w): yield v
+            x = i_px % img_w
+            y = i_px // img_w
+            if y >= (img_h/img_w) * x and x%gx and y%gy:
+                yield v
             # PROTIP: threshold line eq. is y == m * x; m == img_h/img_w
             else: yield 0x00
 
@@ -397,6 +405,14 @@ if __name__ == '__main__':
                 'default': next(iter(RASTER_OUT_FNS.keys())),
                 'help': 'sample page raster format',
             },
+            '--grate_x': {
+                'default': None,
+                'help': "clear pixel every x'th column (circle and half-diagonal only)"
+            },
+            '--grate_y': {
+                'default': None,
+                'help': "clear pixel every y'th row (circle and half-diagonal only)"
+            },
             '--mode': {
                 'choices': MODES_FNS.keys(),
                 'default': next(iter(MODES_FNS.keys())),
@@ -431,9 +447,13 @@ if __name__ == '__main__':
     fact = RESOLUTIONS_F[args.resolution]
     w = int(round(size[0] * fact))
     h = int(round(size[1] * fact))
+    gx = w+1
+    if args.grate_x: gx = int(args.grate_x)
+    gy = h+1
+    if args.grate_y: gy = int(args.grate_y)
     mkfn_px = MODES_FNS[args.mode]
     val = int(args.p5_value)
-    fn_px = mkfn_px(w, h, value=val)
+    fn_px = mkfn_px(w, h, value=val, grate_x=gx, grate_y=gy)
     fn_rast = RASTER_OUT_FNS[args.format]
     if True in map(lambda x: x in args.comment, '\x0a\n'):
         raise ValueError('newlines not permitted in comment')
