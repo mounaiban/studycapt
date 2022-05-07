@@ -193,19 +193,21 @@ def _mk_fn_circle(w, h, **kwargs):
     Create a function that yields pixels for a page with a single circle
     in the middle.
     """
-    d_short = min(w,h)
+    r = (min(w,h)/2.5) # radius is based off w or h, whichever is smaller
     v = kwargs.get('value', PX_VALUE_DEFAULT)
     gx = kwargs.get('grate_x', w+1)
     gy = kwargs.get('grate_y', h+1)
+    img_w = w
+    img_h = h
+    half_img_w = w/2
+    half_img_h = h/2
 
     def _fn_circle(i, n):
-        img_w = w
-        img_h = h
         if n >= img_w * img_h: raise ValueError("index i out of bounds")
         for j in range(n):
             y = (i+j) // w
             x = (i+j) % w
-            if (x-w/2)**2 + (y-h/2)**2 <= (d_short/2.5)**2 and x%gx and y%gy:
+            if (x-half_img_w)**2 + (y-half_img_h)**2 <= r**2 and x%gx and y%gy:
                 yield v
             else: yield 0x00
 
