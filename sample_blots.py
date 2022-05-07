@@ -215,6 +215,7 @@ def _mk_fn_half_diagonal(w, h, **kwargs):
 
     img_w = w
     img_h = h
+    m = h/w
     gx = kwargs.get('grate_x', w+1)
     gy = kwargs.get('grate_y', h+1)
     v = kwargs.get('value', PX_VALUE_DEFAULT)
@@ -225,7 +226,7 @@ def _mk_fn_half_diagonal(w, h, **kwargs):
             i_px = i + x
             x = i_px % img_w
             y = i_px // img_w
-            if y >= (img_h/img_w) * x and x%gx and y%gy:
+            if y >= m * x and x%gx and y%gy:
                 yield v
             # PROTIP: threshold line eq. is y == m * x; m == img_h/img_w
             else: yield 0x00
