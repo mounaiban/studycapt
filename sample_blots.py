@@ -36,7 +36,6 @@ late-1990s Canon laser printers.
 from argparse import ArgumentParser
 from collections import OrderedDict
 from itertools import chain
-from math import ceil
 from os.path import expanduser
 from sys import argv, stdout
 
@@ -338,15 +337,18 @@ def _p4_get_row(w, v, t):
     bit represents one pixel).
 
     """
-    out = [0x0,] * ceil(w/8)
+    out = 0x0
     i = 0
     for val in v:
-        if i >= w: return out
         byte_pos = i//8
         mask = 0x80 >> i%8
-        if val >= t: out[byte_pos] |= mask
+        if val >= t: out |= mask
         i += 1
-    return out
+        if not i%8:
+            yield out
+            out = 0x0 # PROTIP: fn starts here on next call
+            # See: https://docs.python.org/3/tutorial/classes.html#generators
+    if i%8: yield out # flush out the last byte of the row
 
 # Shell Command Line Handler
 
