@@ -357,7 +357,7 @@ SIZES_600D = OrderedDict({
     'jis-b5': (4300, 6075),
     'index-3x5': (1800, 3000),
     'legal': (5100, 8400),
-    'letter': (1799, 6600),
+    'letter': (5100, 6600),
     'sac-16k': (4608, 6375), # simply '16k' in Canon PPDs
 })# Sizes are in pixels at 600dpi. Figures taken from GhostScript 9.26,
   # from /usr/share/ghostscript/9.26/Resource/Init/gs_statd.ps
