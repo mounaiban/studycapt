@@ -391,6 +391,7 @@ RESOLUTIONS_F = OrderedDict({
 # Lower resolutions are only intended for illustrative purposes
 
 if __name__ == '__main__':
+    with_g = 'circle, half-diagonal'# modes where grate control is available
     parser_spec = {
         'desc': 'Generate PBM P4 for RLE compression studies',
         'help': 'hi',
@@ -412,11 +413,11 @@ if __name__ == '__main__':
             },
             '--grate_x': {
                 'default': None,
-                'help': "clear pixel every x'th column (circle and half-diagonal only)"
+                'help': "clear pixel every x'th column ({} only)".format(with_g)
             },
             '--grate_y': {
                 'default': None,
-                'help': "clear pixel every y'th row (circle and half-diagonal only)"
+                'help': "clear pixel every y'th row ({} only)".format(with_g)
             },
             '--mode': {
                 'choices': MODES_FNS.keys(),
