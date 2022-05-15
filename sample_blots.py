@@ -386,7 +386,12 @@ RASTER_OUT_FNS = OrderedDict({
     'p5': _get_p5_raster
 })
 RESOLUTIONS_F = OrderedDict({
-    '600': 1.0, '300': 0.5, '150': 0.25, '75': 0.125, '37.5': 0.0625
+    '600': 1.0,
+    '300': 0.5,
+    '150': 0.25,
+    '75': 0.125,
+    '37.5': 0.0625,
+    '18.75': 0.03125,
 }) # PROTIP: Choices must be strings.
 # Lower resolutions are only intended for illustrative purposes
 
