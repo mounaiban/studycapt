@@ -45,6 +45,7 @@ PIXELS_PER_BYTE = 8
 PX_VALUE_DEFAULT = 127
 P4_MIN_VALUE = 127
 P5_MAX_VALUE = 255
+INDEX_ERROR_FMT = "index {} out of bounds"
 
 # Plotting & Blotting Functions
 
@@ -102,7 +103,7 @@ def _mk_fn_all_clear(w, h, **kwargs):
     def _fn_all_clear(i, n):
         img_w = w
         img_h = h
-        if i + n > img_w * img_h: raise ValueError("index i out of bounds")
+        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
         # Simplification of i + n - 1 > img_w * img_h
         return (0x00 for x in range(n))
 
@@ -118,11 +119,12 @@ def _mk_fn_all_set(w, h, **kwargs):
 
     """
     v = kwargs.get('value', PX_VALUE_DEFAULT)
+    img_w = w
+    img_h = h
+    n_px = h * w
 
     def _fn_all_set(i, n):
-        img_w = w
-        img_h = h
-        if i + n > img_w * img_h: raise ValueError("index i out of bounds")
+        if i + n > n_px: raise ValueError(INDEX_ERROR_FMT.format(i+n))
         return (v for x in range(n))
 
     return _fn_all_set
@@ -133,10 +135,11 @@ def _mk_fn_gradient_horizontal(w, h, **kwargs):
     greyscale gradient. Intended for use with P5 output only.
 
     """
+    img_w = w
+    img_h = h
+
     def _fn_gradient_horizontal(i, n):
-        img_w = w
-        img_h = h
-        if i + n > img_w * img_h: raise ValueError("index i out of bounds")
+        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
         for j in range(n):
             y = (i+j) // img_h
             yield int(P5_MAX_VALUE * y/img_h)
@@ -160,7 +163,7 @@ def _mk_fn_incr_runs_2_pow_x(w, h, **kwargs):
     img_h = h
 
     def _fn_incr_runs_2_pow_x(i, n):
-        if i + n > img_w * img_h: raise ValueError("index i out of bounds")
+        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
         for x in range(n):
             i_px = i + x - (mt * img_w)
             b = 2**(i_px.bit_length()-1) # bias
@@ -176,7 +179,7 @@ def _mk_fn_incr_runs(w, h, **kwargs):
     v = kwargs.get('value', PX_VALUE_DEFAULT)
 
     def _fn_incr_runs(i, n):
-        if i + n > img_w * img_h: raise ValueError("index i out of bounds")
+        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
 
         for x in range(n):
             i_px = i + x
@@ -198,11 +201,12 @@ def _mk_fn_circle(w, h, **kwargs):
     gy = kwargs.get('grate_y', h+1)
     img_w = w
     img_h = h
+    n_px = h * w
     half_img_w = w/2
     half_img_h = h/2
 
     def _fn_circle(i, n):
-        if n >= img_w * img_h: raise ValueError("index i out of bounds")
+        if i + n > n_px: raise ValueError(INDEX_ERROR_FMT.format(i+n))
         for j in range(n):
             y = (i+j) // w
             x = (i+j) % w
@@ -222,7 +226,7 @@ def _mk_fn_half_diagonal(w, h, **kwargs):
     v = kwargs.get('value', PX_VALUE_DEFAULT)
 
     def _fn_half_diagonal(i, n):
-        if n >= img_w * img_h: raise ValueError("index i out of bounds")
+        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
         for x in range(n):
             i_px = i + x
             x = i_px % img_w
@@ -248,7 +252,7 @@ def _mk_fn_half_horizontal(w, h, **kwargs):
     v = kwargs.get('value', PX_VALUE_DEFAULT)
 
     def _fn_half_horizontal(i, n):
-        if n >= img_w * img_h: raise ValueError("index i out of bounds")
+        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
         for x in range(n):
             i_px = i + x
             if i_px/img_w >= img_h//2: yield v
@@ -262,7 +266,7 @@ def _mk_fn_mirrored_incr_runs(w, h, **kwargs):
     v = kwargs.get('value', PX_VALUE_DEFAULT)
 
     def _fn_mirrored_incr_runs(i, n):
-        if n >= img_w * img_h: raise ValueError("index i out of bounds")
+        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
         for x in range(n):
             i_px = i + x
             x = i_px % img_w
@@ -288,7 +292,7 @@ def _mk_fn_quarter_diagonal(w, h, **kwargs):
     v = kwargs.get('value', PX_VALUE_DEFAULT)
 
     def _fn_quarter_diagonal(i, n):
-        if n >= img_w * img_h: raise ValueError("index i out of bounds")
+        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
         for x in range(n):
             i_px = i + x
             if (i_px/img_w) >= ((img_h//2)/img_w)*(i_px%img_w): yield v
