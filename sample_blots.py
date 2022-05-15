@@ -195,7 +195,7 @@ def _mk_fn_circle(w, h, **kwargs):
     Create a function that yields pixels for a page with a single circle
     in the middle.
     """
-    r = (min(w,h)/2.5) # radius is based off w or h, whichever is smaller
+    r_sq = (min(w,h)/2.5)**2 # radius is based off w or h, whichever is smaller
     v = kwargs.get('value', PX_VALUE_DEFAULT)
     gx = kwargs.get('grate_x', w+1)
     gy = kwargs.get('grate_y', h+1)
@@ -208,9 +208,9 @@ def _mk_fn_circle(w, h, **kwargs):
     def _fn_circle(i, n):
         if i + n > n_px: raise ValueError(INDEX_ERROR_FMT.format(i+n))
         for j in range(n):
-            y = (i+j) // w
-            x = (i+j) % w
-            if (x-half_img_w)**2 + (y-half_img_h)**2 <= r**2 and x%gx and y%gy:
+            y = (i+j) // img_w
+            x = (i+j) % img_w
+            if (x-half_img_w)**2 + (y-half_img_h)**2 <= r_sq and x%gx and y%gy:
                 yield v
             else: yield 0x00
 
@@ -263,6 +263,7 @@ def _mk_fn_half_horizontal(w, h, **kwargs):
 def _mk_fn_mirrored_incr_runs(w, h, **kwargs):
     img_w = w
     img_h = h
+    half_img_h = h//2
     v = kwargs.get('value', PX_VALUE_DEFAULT)
 
     def _fn_mirrored_incr_runs(i, n):
@@ -271,7 +272,7 @@ def _mk_fn_mirrored_incr_runs(w, h, **kwargs):
             i_px = i + x
             x = i_px % img_w
             y = i_px // img_w
-            k = y - (h//2)
+            k = y - half_img_h
             if x%(k or 1) >= k//2: yield v
             else: yield 0x00
 
@@ -289,13 +290,15 @@ def _mk_fn_quarter_diagonal(w, h, **kwargs):
     """
     img_w = w
     img_h = h
+    m = (img_h//2)/img_w
+    n_px = img_w * img_h
     v = kwargs.get('value', PX_VALUE_DEFAULT)
 
     def _fn_quarter_diagonal(i, n):
         if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
         for x in range(n):
             i_px = i + x
-            if (i_px/img_w) >= ((img_h//2)/img_w)*(i_px%img_w): yield v
+            if (i_px/img_w) >= m * (i_px%img_w): yield v
             else: yield 0x00
 
     return _fn_quarter_diagonal
