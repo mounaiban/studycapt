@@ -121,7 +121,7 @@ class SCoADecoder:
         -------
         decoder = SCoADecoder(596)    # A4 width
         file_h = open('page-1.scoa.bin', mode='rb')
-        decoder_iter = decode(iter(file_h.read()))
+        decoder_iter = decoder.decode(iter(file_h.read()))
         decoded_bytes = bytes(x for x in decoder_iter)
 
         An iter is used to avoid having to read entire streams into
@@ -167,18 +167,18 @@ class SCoADecoder:
                 while b == SCOA_LONG_OLDB_248:
                     npx += 1
                     b = next(biter)
+                    self._i_in += 1
                 # TODO: understanding of old_Long + new may be wrong
                 np = (b & self.UINT_5_MASK) << 3
                 nextb = next(biter)
                 np |= nextb & self.UINT_3_MASK_LO
                 if nextb & 0xC0 == SCOA_LO_NEWB:
-                    n_new = b & self.UINT_3_MASK_LO
-                    # n_new = (b & self.UINT_3_MASK_HI) >> 3
+                    n_new = (nextb & self.UINT_3_MASK_HI) >> 3
                     ub = (next(biter) for i in range(n_new))
                     self._i_in += n_new
                 elif nextb & 0xC0 == SCOA_LO_REPEAT:
-                    nr = b & self.UINT_3_MASK_LO
-                    #nr = (b & self.UINT_3_MASK_HI) >> 3
+                    #nr = b & self.UINT_3_MASK_LO
+                    nr = (nextb & self.UINT_3_MASK_HI) >> 3
                     rb = (next(biter),)
                     self._i_in += 1
             elif b & 0xE0 == SCOA_LONG_REPEAT:
