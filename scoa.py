@@ -81,11 +81,11 @@ class SCoADecoder:
         self._i_buf = 0 # indices are in the object, because this allows
         self._i_in = 0  # monitoring to enable progress reports
 
-    # the order is always old, repeat, new
-    # for example no opcode puts new before old or repeat...
-    # thus, a VLIW-like approach has been taken where the operations
-    # always run and in this order...
-    # parts that are not needed are dummied out.
+    # The operations have been found to happen only in this order:
+    # old, repeat, new
+    #
+    # All three operations always run. When an operation is not needed,
+    # it still runs but with arguments that render it a non-op.
 
     def _writeout(self, np=0, nr=0, rb=(), ub=()):
         """
