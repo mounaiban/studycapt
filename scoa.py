@@ -25,6 +25,7 @@ SCoA Toolkit for Python
 #
 import pdb
 from itertools import chain
+from os.path import expanduser
 
 SCOA_OLD_NEW = 0b00_000000 # uncompressed bytes (old+new)
 SCOA_OLD_REPEAT = 0b01_000000 # compressed bytes (old+repeat)
@@ -225,6 +226,43 @@ class SCoADecoder:
             if self._i_buf >= self.line_size:
                 self._i_buf = 0
                 self._buffer = current_buf.copy() # PROTIP: cannot just assign
+
+def scoa_file_to_p4(path, width=None, height=None):
+    """
+    Return a byte array containing an uncompressed P4 bitmap from a
+    SCoA-compressed P4 bitmap file at ``path``.
+
+    """
+    # Input file format
+    # -----------------
+    # The file format largely follows netpbm conventions, and contains
+    # in this order from byte 0:
+    #
+    # The ASCII string "SCOA" (in all caps), then a newline, then
+    # The pixel width of the image, then a space, then
+    # The pixel height of the image, then a newline, then
+    # The SCoA-compressed bitstream for the rest of the file
+    #
+    # Summary: b'SCOA\n{pixel_width} {pixel_height}\n{scoa_data}'
+    #
+    # Comments are not supported at this time. Only one page per file.
+    # TODO: Make standard closer to netpbm, support multiple pages.
+    #
+    with open(expanduser(path), mode='rb') as fh:
+        if fh.readline() != b'SCOA\n':
+            raise ValueError('file not marked as SCOA-compressed P4 bitmap')
+        if width and height:
+            if width % 8 > 0: raise ValueError('width must be divisible by 8')
+            if height % 8 > 0: raise ValueError('height must be divisible by 8')
+        else:
+            width, height = fh.readline().split(b' ')
+        img_w = int(width)
+        img_h = int(height)
+        decoder = SCoADecoder(img_w//8, init_value=b'\xf0')
+        decoder_iter = decoder.decode(iter(fh.read()))
+        p4_header = "P4\n{} {}\n".format(img_w, img_h)
+        out_chain = chain(bytes(p4_header, encoding='ascii'), decoder_iter)
+        return bytes(out_chain)
 
 # decoders for manual testing
 testdec8 = SCoADecoder(8, init_value=b'\x0f')
