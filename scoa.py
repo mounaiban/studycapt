@@ -100,9 +100,6 @@ class SCoADecoder:
 
         * ub: iter of uncompressed new bytes
 
-        TODO: Mismatched line_sizes may lead to StopIteration errors.
-        This error condition is yet to be properly handled.
-
         """
         iterold = (x for x in self._buffer[self._i_buf : self._i_buf+np])
         iterrep = (x for x in rb*nr)
