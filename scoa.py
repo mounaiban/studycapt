@@ -224,6 +224,32 @@ class SCoADecoder:
                 self._i_buf = 0
                 self._buffer = current_buf.copy() # PROTIP: cannot just assign
 
+def _read_scoa_file_header(fh):
+    """
+    Read Studycapt SCoA-compressed P4 Bitmap Header, return dimensions
+    in pixels.
+
+    """
+    if fh.readline() != b'SCOA\n':
+        raise ValueError('file not marked as SCOA-compressed P4 bitmap')
+    width, height = fh.readline().split(b' ')
+    return (int(width), int(height))
+
+def _scoa_file_iter(path, width=None, height=None):
+    """
+    Return a tuple (file_iter, decoder) where:
+
+    * file_iter is an iter yielding uncompressed bytes from a SCoA-
+      compressed P4 bitmap at ``path``.
+
+    * decoder is a SCoADecoder object decompressing the file at ``path``.
+
+    """
+    with open(expanduser(path), mode='rb') as fh:
+        img_w, _ = _read_scoa_file_header(fh)
+        decoder = SCoADecoder(img_w//8, init_value=b'\xf0')
+        return (decoder.decode(iter(fh.read())), decoder)
+
 def scoa_file_to_p4(path, width=None, height=None):
     """
     Return a byte array containing an uncompressed P4 bitmap from a
@@ -245,18 +271,18 @@ def scoa_file_to_p4(path, width=None, height=None):
     # Comments are not supported at this time. Only one page per file.
     # TODO: Make standard closer to netpbm, support multiple pages.
     #
-    with open(expanduser(path), mode='rb') as fh:
-        if fh.readline() != b'SCOA\n':
-            raise ValueError('file not marked as SCOA-compressed P4 bitmap')
+    with open(expanduser(path), mode='rb') as scoafile:
+        fw, fh = _read_scoa_file_header(scoafile)
         if width and height:
-            if width % 8 > 0: raise ValueError('width must be divisible by 8')
-            if height % 8 > 0: raise ValueError('height must be divisible by 8')
+            img_w = width
+            img_h = height
         else:
-            width, height = fh.readline().split(b' ')
-        img_w = int(width)
-        img_h = int(height)
+            img_w = fw
+            img_h = fh
+        if img_w % 8 > 0: raise ValueError('width must be divisible by 8')
+        if img_h % 8 > 0: raise ValueError('height must be divisible by 8')
         decoder = SCoADecoder(img_w//8, init_value=b'\xf0')
-        decoder_iter = decoder.decode(iter(fh.read()))
+        decoder_iter = decoder.decode(iter(scoafile.read()))
         p4_header = "P4\n{} {}\n".format(img_w, img_h)
         out_chain = chain(bytes(p4_header, encoding='ascii'), decoder_iter)
         return bytes(out_chain)
