@@ -50,10 +50,27 @@ class SCoADecoder:
     SCoA Decoder Object to decompress SCoA streams. SCoA streams
     encode 1-bit rasters very similar in spec to the PBM P4 format.
 
+    Please note that the Decoder does not process file headers or
+    other metadata. Metadata must be stripped before the stream is
+    passed to the Decoder.
+
     """
     UINT_3_MASK_HI = 0b00_111_000
     UINT_3_MASK_LO = 0b00_000_111
     UINT_5_MASK = 0b000_11111
+
+    def __repr__(self):
+        # Format for current_op: (np, nr, nu)
+        # np - number of bytes from previous line
+        # nr - number of repeated new bytes
+        # nu - number of new bytes
+        stats = {
+            'line_size': self.line_size,
+            'i_buf': self._i_buf,
+            'i_in': hex(self._i_in),
+            'current_op': self._current_op,
+        }
+        return "{} <status: {}>".format(self.__class__.__name__, stats)
 
     def __init__(self, line_size, **kwargs):
         """
@@ -79,6 +96,8 @@ class SCoADecoder:
         self.line_size = line_size
         self._init_value = initv
         self._buffer = [ord(initv),] * self.line_size
+        self._buffer_b = [ord(initv),] * self.line_size
+        self._current_op = (0,0,0)
         self._i_buf = 0 # indices are in the object, because this allows
         self._i_in = 0  # monitoring to enable progress reports
 
@@ -126,11 +145,12 @@ class SCoADecoder:
         large buffers.
 
         """
-        current_buf = [self._init_value,] * self.line_size
+        # current_buf = [self._init_value,] * self.line_size
         self._i_in = 0
         np = 0 # number of bytes from previous line
         npx = 0 # number of 0x9f opcodes (np, extended)
         nr = 0 # number of bytes to repeat
+        nu = 0 # number of uncompressed bytes to pass to output
         rb = () # repeating byte (must still be a tuple due to implementation)
         ub = () # uncompressed byte(s)
         #
@@ -146,9 +166,9 @@ class SCoADecoder:
             # two-bit opcodes
             elif b & 0xC0 == SCOA_OLD_NEW:
                 np = (b & self.UINT_3_MASK_LO)
-                n_new = (b & self.UINT_3_MASK_HI) >> 3
-                ub = (next(biter) for i in range(n_new))
-                self._i_in += n_new
+                nu = (b & self.UINT_3_MASK_HI) >> 3
+                ub = (next(biter) for i in range(nu))
+                self._i_in += nu
             elif b & 0xC0 == SCOA_OLD_REPEAT:
                 np = (b & self.UINT_3_MASK_LO)
                 nr = (b & self.UINT_3_MASK_HI) >> 3
@@ -157,9 +177,9 @@ class SCoADecoder:
             elif b & 0xC0 == SCOA_REPEAT_NEW:
                 nr = (b & self.UINT_3_MASK_HI) >> 3
                 rb = (next(biter),)
-                n_new = b & self.UINT_3_MASK_LO
-                ub = (next(biter) for i in range(n_new))
-                self._i_in += n_new
+                nu = b & self.UINT_3_MASK_LO
+                ub = (next(biter) for i in range(nu))
+                self._i_in += nu
             # three-bit opcodes with two-bit subcommand opcode
             elif b & 0xE0 == SCOA_LONG_OLDB:
                 while b == SCOA_LONG_OLDB_248:
@@ -168,36 +188,38 @@ class SCoADecoder:
                     self._i_in += 1
                 # TODO: understanding of old_Long + new may be wrong
                 np = (b & self.UINT_5_MASK) << 3
-                nextb = next(biter)
-                np |= nextb & self.UINT_3_MASK_LO
-                if nextb & 0xC0 == SCOA_LO_NEWB:
-                    n_new = (nextb & self.UINT_3_MASK_HI) >> 3
-                    ub = (next(biter) for i in range(n_new))
-                    self._i_in += n_new
-                elif nextb & 0xC0 == SCOA_LO_REPEAT:
+                b = next(biter)
+                np |= b & self.UINT_3_MASK_LO
+                self._i_in += 1
+                if b & 0xC0 == SCOA_LO_NEWB:
+                    nu = (b & self.UINT_3_MASK_HI) >> 3
+                    ub = (next(biter) for i in range(nu))
+                    self._i_in += nu
+                elif b & 0xC0 == SCOA_LO_REPEAT:
                     #nr = b & self.UINT_3_MASK_LO
-                    nr = (nextb & self.UINT_3_MASK_HI) >> 3
-                    rb = (next(biter),)
-                    self._i_in += 1
+                    nr = (b & self.UINT_3_MASK_HI) >> 3
+                    if nr > 0:
+                        rb = (next(biter),)
+                        self._i_in += 1
             elif b & 0xE0 == SCOA_LONG_REPEAT:
                 nr = (b & self.UINT_5_MASK) << 3
                 nextb = next(biter)
                 if nextb & 0xC0 == SCOA_LR_LONG_NEW_ONLY:
-                    n_new = nr
-                    n_new |= (nextb & self.UINT_3_MASK_HI) >> 3
+                    nu = nr
+                    nu |= (nextb & self.UINT_3_MASK_HI) >> 3
                     nr = 0
-                    ub = (next(biter) for i in range(n_new))
-                    self._i_in += n_new + 1
+                    ub = (next(biter) for i in range(nu))
+                    self._i_in += nu + 1
                 elif nextb & 0xC0 == SCOA_LR_ONLY:
                     nr |= (nextb & self.UINT_3_MASK_HI) >> 3
                     rb = (next(biter),)
                     self._i_in += 2
                 elif nextb & 0xC0 == SCOA_LR_NEWB:
                     nr |= (nextb & self.UINT_3_MASK_HI) >> 3
-                    n_new = (nextb & self.UINT_3_MASK_LO)
+                    nu = (nextb & self.UINT_3_MASK_LO)
                     rb = (next(biter),)
-                    ub = (next(biter) for i in range(n_new))
-                    self._i_in += n_new + 1
+                    ub = (next(biter) for i in range(nu))
+                    self._i_in += nu + 1
             else:
                 report = {
                     'offset': self._i_in,
@@ -210,19 +232,23 @@ class SCoADecoder:
             # when a line has too many bytes?
             # We are currently using a discard/truncate policy for
             # excess bytes.
-            for x in self._writeout(np=np+(248*npx), nr=nr, rb=rb, ub=ub):
+            total_np = 248*npx + np
+            self._current_op = (total_np, nr, nu)
+            for x in self._writeout(np=total_np, nr=nr, rb=rb, ub=ub):
                 if self._i_buf >= self.line_size: break
-                current_buf[self._i_buf] = x
+                self._buffer_b[self._i_buf] = x
                 yield x
                 self._i_buf += 1
             np = 0
             npx = 0
             nr = 0
+            nu = 0
             rb = ()
             ub = ()
             if self._i_buf >= self.line_size:
                 self._i_buf = 0
-                self._buffer = current_buf.copy() # PROTIP: cannot just assign
+                self._buffer = self._buffer_b.copy()
+                    # PROTIP: cannot just assign buffer to transfer data
 
 def _read_scoa_file_header(fh):
     """
