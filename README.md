@@ -27,6 +27,25 @@ Other ways of adding Lua dissectors are explained in [Chapter 10](https://wiresh
 The dissector currently only dissects packets over USB. CAPT over Ethernet and
 parallel printer/IEEE 1284 ports are currently not supported.
 
+### [in2pbmp4.sh](in2pbmp4.sh) (Input to PBM P4 Image Script)
+A script originally created to help visualise arbitrary data as a PBM P4
+image. Currently obsolete and due for an improvement. For now a `printf`
+and a `dd` is probably more usable:
+
+```sh
+# Example for 200x200 1bpp image
+printf "P4\n200 200\n" > example.pbm
+dd if=input.bin bs=$((200 * 200 / 8)) count=1 >> example.pbm   # PROTIP: '>>' for appending, NOT '>'
+```
+
+The format is like:
+```sh 
+printf "P4\n200 200\n" > $OUTPUT_FILE
+dd if=$INPUT_FILE bs=$((200 * 200 / 8)) count=1 >> $OUTPUT_FILE
+```
+
+Try `/dev/urandom` as an input file for a start!
+
 ### [sample\_balls.py](sample_balls.py) (Performance Test Page Generator)
 A Python script to generate test pages of varying complexity in SVG format, in
 order to test rasteriser and compressor performance.
@@ -64,6 +83,20 @@ $ ./sample_blots.py --mode mirrored-incr-runs --size=a4 --resolution 600 --forma
 
 Run `./sample_blots.py --help` for a list of options.
 
+### [scoa.py](scoa.py) (SCoA Toolkit)
+A Python module containing a SCoA decompressor among other utilities for
+decompressing SCoA images or print data. Currently incomplete. Not all
+opcodes are recognised and the decompressed data is incorrect.
+
+See also [Issue #33](https://github.com/agalakhov/captdriver/issues/33)
+on the original captdriver repo for details.
+
+```python
+from scoa import SCoADecoder
+
+# Create a decoder object for a 596-byte wide bitmap
+decoder = SCoADecoder(596)
+```
 
 Have fun!
 
