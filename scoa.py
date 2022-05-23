@@ -33,8 +33,8 @@ SCOA_REPEAT_NEW = 0b11_000000 # compressed + uncompressed bytes (repeat+new)
 # CopyLong commands; SCOA_LO opcodes must come after SCOA_LONG_OLDB [_248]
 SCOA_LONG_OLDB = 0b100_00000
 SCOA_LONG_OLDB_248 = 0x9F
-SCOA_LO_NEWB = 0b00_000000
-SCOA_LO_REPEAT = 0b10_000000
+SCOA_LOLD_NEWB = 0b00_000000
+SCOA_LOLD_REPEAT = 0b10_000000
 # RepeatLong commands; SCOA_LR opcodes must come after SCOA_LONG_REPEAT
 SCOA_LONG_REPEAT = 0b101_00000
 SCOA_LR_LONG_NEW_ONLY = 0b11_000000
@@ -193,12 +193,13 @@ class SCoADecoder:
                 b = next(biter)
                 np |= b & self.UINT_3_MASK_LO
                 self._i_in += 1
-                if b & 0xC0 == SCOA_LO_NEWB:
+                if b & 0xC0 == SCOA_LOLD_NEWB:
                     nu = (b & self.UINT_3_MASK_HI) >> 3
                     ub = (next(biter) for i in range(nu))
                     self._i_in += nu
-                elif b & 0xC0 == SCOA_LO_REPEAT:
-                    #nr = b & self.UINT_3_MASK_LO
+                elif b & 0xC0 == SCOA_LOLD_REPEAT:
+                    # TODO: old_Long + repeat support is not complete
+                    # there are some unknown opcodes...
                     nr = (b & self.UINT_3_MASK_HI) >> 3
                     if nr > 0:
                         rb = (next(biter),)
