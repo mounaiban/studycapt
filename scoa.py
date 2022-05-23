@@ -270,18 +270,35 @@ def _read_scoa_file_header(fh):
     width, height = fh.readline().split(b' ')
     return (int(width), int(height))
 
-def _scoa_file_iter(path, width=None, height=None):
+def _scoa_file_iter(path, width=None):
     """
     Return a tuple (file_iter, decoder) where:
 
     * file_iter is an iter yielding uncompressed bytes from a SCoA-
-      compressed P4 bitmap at ``path``.
+      compressed P4 bitmap at ``path``. The data does not include
+      a header.
 
     * decoder is a SCoADecoder object decompressing the file at ``path``.
+
+    This function is used for debugging SCoADecoder. Example usage:
+
+    >>> fiter, dec = _scoa_file_iter('comp-page1.scoa')
+    >>> dec # shows decoder status
+    <decoder status appears>
+
+    >>> next(fiter) # yields the next byte
+    <yield next byte>
+
+    >>> [next(fiter) for x in range(10)]
+    <yield next ten bytes>
+
+    >>> [next(fiter) for x in range(dec.line_size)]
+    <yield bytes until before the same column on the next line>
 
     """
     with open(expanduser(path), mode='rb') as fh:
         img_w, _ = _read_scoa_file_header(fh)
+        if width: img_w = width
         decoder = SCoADecoder(img_w//8, init_value=b'\xf0')
         return (decoder.decode(iter(fh.read())), decoder)
 
