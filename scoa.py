@@ -1,5 +1,10 @@
 """
 SCoA Toolkit for Python
+
+Reference implementation for Smart Compression Architecture (SCoA)
+encoded 1-bit, PBM P4-like bitmaps as used by select Canon laser
+printers.
+
 """
 # Written by Moses Chong
 # First edition 2022/05/16
@@ -284,6 +289,11 @@ def scoa_file_to_p4(path, width=None, height=None):
     """
     Return a byte array containing an uncompressed P4 bitmap from a
     SCoA-compressed P4 bitmap file at ``path``.
+
+    Example to decompress a SCoA file to another file:
+
+    out_file = open('page1.pbm', mode='wb') #WARNING: overwrites file on open
+    out_file.write(scoa_file_to_p4('comp-page1.scoa'))
 
     """
     # Input file format
