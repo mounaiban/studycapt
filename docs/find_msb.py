@@ -167,6 +167,29 @@ def find_msb_bisearch(val, sizeof=4):
             nbmax = nbits
     return nbmax + 1
 
+def find_msb_bisect_right(val, sizeof=4):
+    """
+    Attempted binary search find_msb() adapted from Python's own
+    bisect.bisect_right(). The implementation source for
+    bisect_right() may be found at /usr/lib64/python*/bisect.py
+    on most Linux systems.
+
+    This function can be thought of as a simplified, optimised
+    version of find_msb_bisearch(). It has good performance, but
+    also most importantly, a short length.
+
+    """
+    guard_val(val, sizeof)
+    nbmin = 0
+    nbmax = sizeof<<3
+    while nbmin < nbmax:
+        nbmid = (nbmin + nbmax) >> 1
+        if val < (1 << nbmid):
+            nbmax = nbmid
+        else:
+            nbmin = nbmid + 1
+    return nbmin
+
 # Benchmarking stuff
 #
 SAMPLE_SIZE = 100000
@@ -179,7 +202,8 @@ funcs = (
     find_msb_shortcut_dualchoice,
     find_msb_shortcut_quadchoice,
     find_msb_twoway,
-    find_msb_bisearch
+    find_msb_bisearch,
+    find_msb_bisect_right
 )
 
 def benchmark(funcs=funcs, sample=sample_32, number=1, sizeof=4):
