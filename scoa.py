@@ -67,6 +67,7 @@ class SCoADecoder:
         stats = {
             'line_size': self.line_size,
             'i_buf': self._i_buf,
+            'i_line': self._i_line,
             'i_in': hex(self._i_in),
             'current_op': self._current_op,
         }
@@ -98,6 +99,7 @@ class SCoADecoder:
         self._buffer = [ord(initv),] * self.line_size
         self._buffer_b = [ord(initv),] * self.line_size
         self._current_op = (0,0,0)
+        self._i_line = 0
         self._i_buf = 0 # indices are in the object, because this allows
         self._i_in = 0  # monitoring to enable progress reports
 
@@ -246,9 +248,10 @@ class SCoADecoder:
             rb = ()
             ub = ()
             if self._i_buf >= self.line_size:
+                self._i_line += 1
                 self._i_buf = 0
                 self._buffer = self._buffer_b.copy()
-                    # PROTIP: cannot just assign buffer to transfer data
+                # PROTIP: cannot just assign buffer to transfer data
 
 def _read_scoa_file_header(fh):
     """
