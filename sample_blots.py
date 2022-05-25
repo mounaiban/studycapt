@@ -237,10 +237,21 @@ def _mk_fn_circle(w, h, **kwargs):
     return _fn_circle
 
 def _mk_fn_half_diagonal(w, h, **kwargs):
+    """
+    Shade the whole area on or below a diagonal line, which by default
+    runs from the upper left to the lower right.
 
+    Keyword Arguments
+    -----------------
+    m - the angle of the line
+
+    c - the position of the line
+
+    """
     img_w = w
     img_h = h
-    m = h/w
+    m = kwargs.get('m', h/w)
+    c = kwargs.get('c', 0)
     gx = kwargs.get('grate_x', w+1)
     gy = kwargs.get('grate_y', h+1)
     v = kwargs.get('value', PX_VALUE_DEFAULT)
@@ -251,12 +262,19 @@ def _mk_fn_half_diagonal(w, h, **kwargs):
             i_px = i + x
             x = i_px % img_w
             y = i_px // img_w
-            if y >= m * x and x%gx and y%gy:
+            if y >= (m * x) + c and x%gx and y%gy:
                 yield v
             # PROTIP: threshold line eq. is y == m * x; m == img_h/img_w
             else: yield 0x00
 
     return _fn_half_diagonal
+
+def _mk_fn_reversed_half_diagonal(w, h, **kwargs):
+    """
+    Shade the whole area on or below a diagonal line running from the
+    lower left to the upper right.
+    """
+    return _mk_fn_half_diagonal(w, h, m=-h/w, c=h, **kwargs)
 
 def _mk_fn_half_horizontal(w, h, **kwargs):
     """
@@ -403,6 +421,7 @@ MODES_FNS = OrderedDict({
     'circle': _mk_fn_circle,
     'gradient-horizontal': _mk_fn_gradient_horizontal,
     'half-diagonal': _mk_fn_half_diagonal,
+    'reversed-half-diagonal': _mk_fn_reversed_half_diagonal,
     'half-horizontal': _mk_fn_half_horizontal,
     'mirrored-incr-runs': _mk_fn_mirrored_incr_runs,
     'incr-runs': _mk_fn_incr_runs,
