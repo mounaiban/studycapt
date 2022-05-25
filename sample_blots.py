@@ -101,14 +101,8 @@ SQUARE_SIZE_DEFAULT = 64
 def _mk_fn_all_clear(w, h, **kwargs):
     """Create a function that yields pixels for a blank page"""
 
-    def _fn_all_clear(i, n):
-        img_w = w
-        img_h = h
-        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
-        # Simplification of i + n - 1 > img_w * img_h
-        return (0x00 for x in range(n))
-
-    return _fn_all_clear
+    kwargs['value'] = 0x0
+    return _mk_fn_all_set(w, h, **kwargs)
 
 def _mk_fn_all_set(w, h, **kwargs):
     """
@@ -326,20 +320,7 @@ def _mk_fn_quarter_diagonal(w, h, **kwargs):
     white, 0xFF for black.
 
     """
-    img_w = w
-    img_h = h
-    m = (img_h//2)/img_w
-    n_px = img_w * img_h
-    v = kwargs.get('value', PX_VALUE_DEFAULT)
-
-    def _fn_quarter_diagonal(i, n):
-        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
-        for x in range(n):
-            i_px = i + x
-            if (i_px/img_w) >= m * (i_px%img_w): yield v
-            else: yield 0x00
-
-    return _fn_quarter_diagonal
+    return _mk_fn_half_diagonal(w, h, m=(h//2)/w, **kwargs)
 
 # Raster setup functions
 
