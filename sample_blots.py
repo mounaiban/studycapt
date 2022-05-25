@@ -96,6 +96,7 @@ INDEX_ERROR_FMT = "index {} out of bounds"
 # structure to a hex code: primary red is 0xFF0000, primary green is
 # 0x00FF00 and primary blue is 0x0000FF.
 #
+SQUARE_SIZE_DEFAULT = 64
 
 def _mk_fn_all_clear(w, h, **kwargs):
     """Create a function that yields pixels for a blank page"""
@@ -128,6 +129,25 @@ def _mk_fn_all_set(w, h, **kwargs):
         return (v for x in range(n))
 
     return _fn_all_set
+
+def _mk_fn_checkerboard(w, h, **kwargs):
+    v = kwargs.get('value', PX_VALUE_DEFAULT)
+    img_w = w
+    img_h = h
+    ssz = kwargs.get('square_size', SQUARE_SIZE_DEFAULT)
+
+    def _fn_checkerboard(i, n):
+        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
+        for j in range(n):
+            i_px = i+j
+            y = i_px // img_w
+            x = i_px % img_w
+            odd_row = (y // ssz) & 0x01
+            odd_col = (x // ssz) & 0x01
+            if (odd_row and odd_col) or (not odd_row and not odd_col): yield v
+            else: yield 0x0
+
+    return _fn_checkerboard
 
 def _mk_fn_gradient_horizontal(w, h, **kwargs):
     """
@@ -379,6 +399,7 @@ SIZES_600D = OrderedDict({
 MODES_FNS = OrderedDict({
     'all-clear': _mk_fn_all_clear,
     'all-set': _mk_fn_all_set,
+    'checkerboard': _mk_fn_checkerboard,
     'circle': _mk_fn_circle,
     'gradient-horizontal': _mk_fn_gradient_horizontal,
     'half-diagonal': _mk_fn_half_diagonal,
@@ -431,6 +452,10 @@ if __name__ == '__main__':
                 'default': None,
                 'help': "clear pixel every y'th row ({} only)".format(with_g)
             },
+            '--square_size': {
+                'default': SQUARE_SIZE_DEFAULT,
+                'help': "size of checkered squares (checkerboard mode only)"
+            },
             '--mode': {
                 'choices': MODES_FNS.keys(),
                 'default': next(iter(MODES_FNS.keys())),
@@ -471,7 +496,8 @@ if __name__ == '__main__':
     if args.grate_y: gy = int(args.grate_y)
     mkfn_px = MODES_FNS[args.mode]
     val = int(args.p5_value)
-    fn_px = mkfn_px(w, h, value=val, grate_x=gx, grate_y=gy)
+    csz = int(args.square_size)
+    fn_px = mkfn_px(w, h, value=val, grate_x=gx, grate_y=gy, square_size=csz)
     fn_rast = RASTER_OUT_FNS[args.format]
     if True in map(lambda x: x in args.comment, '\x0a\n'):
         raise ValueError('newlines not permitted in comment')
