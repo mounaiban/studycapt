@@ -364,15 +364,16 @@ def _p4_get_row(w, v, t):
 
     """
     out = 0x0
+    mask = 0x80
     i = 0
     for val in v:
-        byte_pos = i//8
-        mask = 0x80 >> i%8
         if val >= t: out |= mask
+        mask >>= 1
         i += 1
-        if not i%8:
+        if not mask:
             yield out
             out = 0x0 # PROTIP: fn starts here on next call
+            mask = 0x80
             # See: https://docs.python.org/3/tutorial/classes.html#generators
     if i%8: yield out # flush out the last byte of the row
 

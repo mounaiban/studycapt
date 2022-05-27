@@ -104,3 +104,19 @@ class BlotFunctionTests(TestCase):
                     samp_hasher = hashcls(samp)
                     self.assertEqual(samp_hasher.digest(), tcase['md5sum'])
 
+class P4Tests(TestCase):
+    VALUE = 127
+
+    def test_p4_get_row_div_8(self):
+        """Get a P4 row for a bitmap with a divisible-by-8 width"""
+        sample_8 = sample_blots._p4_get_row(8, [self.VALUE,]*8, self.VALUE)
+        self.assertEqual([x for x in sample_8], [255,])
+        sample_64 = sample_blots._p4_get_row(64, [self.VALUE,]*64, self.VALUE)
+        self.assertEqual([x for x in sample_64], [255,]*8)
+
+    def test_p4_get_row_non_div_8(self):
+        """Get a P4 row for a bitmap with a non-divisible-by-8 width"""
+        sample_7 = sample_blots._p4_get_row(7, [self.VALUE,]*7, self.VALUE)
+        self.assertEqual([x for x in sample_7], [254,])
+        sample_31 = sample_blots._p4_get_row(31, [self.VALUE,]*31, self.VALUE)
+        self.assertEqual([x for x in sample_31], [255, 255, 255, 254])
