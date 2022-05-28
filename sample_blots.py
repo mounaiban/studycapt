@@ -396,7 +396,7 @@ SIZES_600D = OrderedDict({
   #
   # Size for 16K and 3x5in Index Cards taken from Canon PPDs
   # (CNCUPSLBP1120CAPTK.ppd)
-MODES_FNS = OrderedDict({
+PATTERNS_FNS = OrderedDict({
     'all-clear': _mk_fn_all_clear,
     'all-set': _mk_fn_all_set,
     'checkerboard': _mk_fn_checkerboard,
