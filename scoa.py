@@ -39,7 +39,9 @@ SCOA_REPEAT_NEW = 0b11_000000 # compressed + uncompressed bytes (repeat+new)
 SCOA_LONG_OLDB = 0b100_00000
 SCOA_LONG_OLDB_248 = 0x9F
 SCOA_LOLD_NEWB = 0b00_000000
-SCOA_LOLD_REPEAT = 0b10_000000
+SCOA_LOLD_REPEAT = 0b01_000000
+SCOA_LOLD_REPEAT_LONG_0 = 0b101_00000
+SCOA_LOLD_REPEAT_LONG_1 = 0b10_000000
 # RepeatLong commands; SCOA_LR opcodes must come after SCOA_LONG_REPEAT
 SCOA_LONG_REPEAT = 0b101_00000
 SCOA_LR_LONG_NEW_ONLY = 0b11_000000
@@ -193,7 +195,6 @@ class SCoADecoder:
                     npx += 1
                     b = next(biter)
                     self._i_in += 1
-                # TODO: understanding of old_Long + new may be wrong
                 np = (b & self.UINT_5_MASK) << 3
                 b = next(biter)
                 np |= b & self.UINT_3_MASK_LO
@@ -202,13 +203,20 @@ class SCoADecoder:
                     nu = (b & self.UINT_3_MASK_HI) >> 3
                     ub = (next(biter) for i in range(nu))
                     self._i_in += nu
-                elif b & 0xC0 == SCOA_LOLD_REPEAT:
-                    # TODO: old_Long + repeat support is not complete
-                    # there are some unknown opcodes...
-                    nr = (b & self.UINT_3_MASK_HI) >> 3
-                    if nr > 0:
+                elif b & 0xE0 == SCOA_LOLD_REPEAT_LONG_0:
+                    nr |= (b & self.UINT_5_MASK) << 3
+                    b = next(biter)
+                    if b & 0xC0 == SCOA_LOLD_REPEAT_LONG_1:
+                        nr |= (b & self.UINT_3_MASK_HI) >> 3
+                        np |= b & self.UINT_3_MASK_LO
                         rb = (next(biter),)
                         self._i_in += 1
+                    self._i_in += 1
+                elif b & 0xC0 == SCOA_LOLD_REPEAT:
+                    nr = (b & self.UINT_3_MASK_HI) >> 3
+                    b = next(biter)
+                    rb = (b,)
+                    self._i_in += 2
             elif b & 0xE0 == SCOA_LONG_REPEAT:
                 nr = (b & self.UINT_5_MASK) << 3
                 nextb = next(biter)
