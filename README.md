@@ -85,8 +85,8 @@ Run `./sample_blots.py --help` for a list of options.
 
 ### [scoa.py](scoa.py) (SCoA Toolkit)
 A Python module containing a SCoA decompressor among other utilities for
-decompressing SCoA images or print data. Currently incomplete. Not all
-opcodes are recognised and the decompressed data is incorrect.
+decompressing SCoA images or print data. The decompressor should work,
+but has not yet been thoroughly validated.
 
 See also [Issue #33](https://github.com/agalakhov/captdriver/issues/33)
 on the original captdriver repo for details.

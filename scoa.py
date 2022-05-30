@@ -141,7 +141,8 @@ class SCoADecoder:
 
         Return a generator yielding uncompressed bytes.
 
-        NOTE: The decoder is still not quite correct
+        NOTE: The decoder correctly decompresses preliminary test samples,
+        but a more thorough validation is in progress at time of writing.
 
         Example
         -------
@@ -195,28 +196,32 @@ class SCoADecoder:
                     npx += 1
                     b = next(biter)
                     self._i_in += 1
-                np = (b & self.UINT_5_MASK) << 3
-                b = next(biter)
-                np |= b & self.UINT_3_MASK_LO
-                self._i_in += 1
+                if b & 0xE0 == SCOA_LONG_OLDB:
+                    # check for the SCOA_LONG_OLDB opcode again,
+                    # to handle the case where 0x9f is extending
+                    # another SCOA_LONG_OLDB opcode
+                    np = (b & self.UINT_5_MASK) << 3
+                    b = next(biter)
+                    self._i_in += 1
                 if b & 0xC0 == SCOA_LOLD_NEWB:
+                    np |= b & self.UINT_3_MASK_LO
                     nu = (b & self.UINT_3_MASK_HI) >> 3
                     ub = (next(biter) for i in range(nu))
                     self._i_in += nu
+                elif b & 0xC0 == SCOA_LOLD_REPEAT:
+                    np |= b & self.UINT_3_MASK_LO
+                    nr = (b & self.UINT_3_MASK_HI) >> 3
+                    rb = (next(biter),)
+                    self._i_in += 1
                 elif b & 0xE0 == SCOA_LOLD_REPEAT_LONG_0:
                     nr |= (b & self.UINT_5_MASK) << 3
                     b = next(biter)
+                    self._i_in += 1
                     if b & 0xC0 == SCOA_LOLD_REPEAT_LONG_1:
                         nr |= (b & self.UINT_3_MASK_HI) >> 3
                         np |= b & self.UINT_3_MASK_LO
                         rb = (next(biter),)
                         self._i_in += 1
-                    self._i_in += 1
-                elif b & 0xC0 == SCOA_LOLD_REPEAT:
-                    nr = (b & self.UINT_3_MASK_HI) >> 3
-                    b = next(biter)
-                    rb = (b,)
-                    self._i_in += 2
             elif b & 0xE0 == SCOA_LONG_REPEAT:
                 nr = (b & self.UINT_5_MASK) << 3
                 nextb = next(biter)
