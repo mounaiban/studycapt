@@ -27,6 +27,21 @@ Other ways of adding Lua dissectors are explained in [Chapter 10](https://wiresh
 The dissector currently only dissects packets over USB. CAPT over Ethernet and
 parallel printer/IEEE 1284 ports are currently not supported.
 
+### [captstream.py](captstream.py) (CAPT Job File and Stream Toolkit)
+A Python module to extract data from CAPT job files or streams that contain or
+transport print data for/to print devices.
+
+The `CAPTStream` object in this module contains a method, `get_page()`, for easily
+decompressing rasters from job files.
+
+```python
+# WARNING: 'output_file.pbm' will be overwritten without further warning.
+
+>>> capts = CAPTStream('input_file.capt')
+>>> with open('output_file.pbm', mode='wb') as fh: fh.write(capts.get_page(1, out_format='p4'))
+... # press enter/return here
+```
+
 ### [in2pbmp4.sh](in2pbmp4.sh) (Input to PBM P4 Image Script)
 A script originally created to help visualise arbitrary data as a PBM P4
 image. Currently obsolete and due for an improvement. For now a `printf`
@@ -84,7 +99,7 @@ $ ./sample_blots.py --mode mirrored-incr-runs --size=a4 --resolution 600 --forma
 Run `./sample_blots.py --help` for a list of options.
 
 ### [scoa.py](scoa.py) (SCoA Toolkit)
-A Python module containing a SCoA decompressor among other utilities for
+A Python module containing a SCoA decompressor and other utilities for
 decompressing SCoA images or print data. The decompressor should work,
 but has not yet been thoroughly validated.
 
