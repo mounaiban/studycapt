@@ -288,10 +288,11 @@ def _read_scoa_file_header(fh):
     """
     if fh.readline() != b'SCOA\n':
         raise ValueError('file not marked as SCOA-compressed P4 bitmap')
-    width, height = fh.readline().split(b' ')
-    return (int(width), int(height))
+    width, height = fh.readline().split()
+    data_size = fh.readline()
+    return (int(width), int(height), int(data_size))
 
-def _scoa_file_iter(path, width=None):
+def _scoa_file_iter(path, width=None, data_size=None):
     """
     Return a tuple (file_iter, decoder) where:
 
@@ -318,7 +319,7 @@ def _scoa_file_iter(path, width=None):
 
     """
     with open(expanduser(path), mode='rb') as fh:
-        img_w, _ = _read_scoa_file_header(fh)
+        img_w, _, size = _read_scoa_file_header(fh)
         if width: img_w = width
         decoder = SCoADecoder(img_w//8, init_value=b'\xf0')
         return (decoder.decode(iter(fh.read())), decoder)
@@ -336,21 +337,25 @@ def scoa_file_to_p4(path, width=None, height=None):
     """
     # Input file format
     # -----------------
-    # The file format largely follows netpbm conventions, and contains
-    # in this order from byte 0:
+    # The file format largely follows netpbm conventions, and contains,
+    # in this order, from byte 0:
     #
-    # The ASCII string "SCOA" (in all caps), then a newline, then
-    # The pixel width of the image, then a space, then
-    # The pixel height of the image, then a newline, then
-    # The SCoA-compressed bitstream for the rest of the file
+    # The ASCII string "SCOA" (in all caps), then a whitespace character, then
+    # The pixel width of the image, then a whitespace char, then
+    # The pixel height of the image, then a whitespace char, then
+    # The length of the SCoA-compressed bitstream in bytes, then
+    # The SCoA-compressed bitstream for the rest of the file.
     #
-    # Summary: b'SCOA\n{pixel_width} {pixel_height}\n{scoa_data}'
+    # Whitespace character may be space, tab, return, newline, FF, or vtab.
+    #
+    # Summary:
+    # b'SCOA {pixel_width} {pixel_height} {data_bytes} {scoa_data}'
     #
     # Comments are not supported at this time. Only one page per file.
-    # TODO: Make standard closer to netpbm, support multiple pages.
+    # TODO: Support multiple pages
     #
     with open(expanduser(path), mode='rb') as scoafile:
-        fw, fh = _read_scoa_file_header(scoafile)
+        fw, fh, size = _read_scoa_file_header(scoafile)
         if width and height:
             img_w = width
             img_h = height
@@ -360,7 +365,7 @@ def scoa_file_to_p4(path, width=None, height=None):
         if img_w % 8 > 0: raise ValueError('width must be divisible by 8')
         if img_h % 8 > 0: raise ValueError('height must be divisible by 8')
         decoder = SCoADecoder(img_w//8, init_value=b'\xf0')
-        decoder_iter = decoder.decode(iter(scoafile.read()))
+        decoder_iter = decoder.decode(iter(scoafile.read(size)))
         p4_header = "P4\n{} {}\n".format(img_w, img_h)
         out_chain = chain(bytes(p4_header, encoding='ascii'), decoder_iter)
         return bytes(out_chain)
