@@ -117,7 +117,7 @@ class SCoADecoder:
     # All three operations always run. When an operation is not needed,
     # it still runs but with arguments that render it a non-op.
 
-    def _writeout(self, np=0, nr=0, rb=(), ub=()):
+    def _writeout(self, np=0, nr=0, rb=0, ub=()):
         """
         Return an generator of the expanded form of an SCoA opcode/packet.
 
@@ -125,13 +125,13 @@ class SCoADecoder:
 
         * nr: number of repeated new bytes
 
-        * rb: byte to repeat
+        * rb: integer value of byte to repeat (e.g. use 255 for 0xFF)
 
         * ub: iter of uncompressed new bytes
 
         """
         iterold = (x for x in self._buffer[self._i_buf : self._i_buf+np])
-        iterrep = (x for x in rb*nr)
+        iterrep = (rb for x in range(nr))
         iternew = (x for x in ub)
         return chain(iterold, iterrep, iternew)
 
@@ -162,7 +162,7 @@ class SCoADecoder:
         npx = 0 # number of 0x9f opcodes (np, extended)
         nr = 0 # number of bytes to repeat
         nu = 0 # number of uncompressed bytes to pass to output
-        rb = () # repeating byte (must still be a tuple due to implementation)
+        rb = 0 # repeating byte as integer value (e.g. 0xFF => 255)
         ub = () # uncompressed byte(s)
         #
         # parsing (like opcode decode)
@@ -183,11 +183,11 @@ class SCoADecoder:
             elif b & 0xC0 == SCOA_OLD_REPEAT:
                 np = (b & self.UINT_3_MASK_LO)
                 nr = (b & self.UINT_3_MASK_HI) >> 3
-                rb = (next(biter),)
+                rb = next(biter)
                 self._i_in += 1
             elif b & 0xC0 == SCOA_REPEAT_NEW:
                 nr = (b & self.UINT_3_MASK_HI) >> 3
-                rb = (next(biter),)
+                rb = next(biter)
                 nu = b & self.UINT_3_MASK_LO
                 ub = (next(biter) for i in range(nu))
                 self._i_in += nu
@@ -212,7 +212,7 @@ class SCoADecoder:
                 elif b & 0xC0 == SCOA_LOLD_REPEAT:
                     np |= b & self.UINT_3_MASK_LO
                     nr = (b & self.UINT_3_MASK_HI) >> 3
-                    rb = (next(biter),)
+                    rb = next(biter)
                     self._i_in += 1
                 elif b & 0xE0 == SCOA_LOLD_WITH_LONG:
                     nl = (b & self.UINT_5_MASK) << 3
@@ -222,7 +222,7 @@ class SCoADecoder:
                         nr |= nl
                         nr |= (b & self.UINT_3_MASK_HI) >> 3
                         np |= b & self.UINT_3_MASK_LO
-                        rb = (next(biter),)
+                        rb = next(biter)
                         self._i_in += 1
                     elif b & 0xC0 == SCOA_LOLD_NEW_LONG:
                         nu |= nl
@@ -241,12 +241,12 @@ class SCoADecoder:
                     self._i_in += nu + 1
                 elif nextb & 0xC0 == SCOA_LR_ONLY:
                     nr |= (nextb & self.UINT_3_MASK_HI) >> 3
-                    rb = (next(biter),)
+                    rb = next(biter)
                     self._i_in += 2
                 elif nextb & 0xC0 == SCOA_LR_NEWB:
                     nr |= (nextb & self.UINT_3_MASK_HI) >> 3
                     nu = (nextb & self.UINT_3_MASK_LO)
-                    rb = (next(biter),)
+                    rb = next(biter)
                     ub = (next(biter) for i in range(nu))
                     self._i_in += nu + 1
             else:
@@ -272,7 +272,7 @@ class SCoADecoder:
             npx = 0
             nr = 0
             nu = 0
-            rb = ()
+            rb = 0
             ub = ()
             if self._i_buf >= self.line_size:
                 self._i_line += 1
