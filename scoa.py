@@ -230,7 +230,7 @@ class SCoADecoder:
                         nu |= (b & self.UINT_3_MASK_HI) >> 3
                         np |= b & self.UINT_3_MASK_LO
                         ub = (next(biter) for i in range(nu))
-                        self._i_in += nu + 1
+                        self._i_in += nu
             elif b & 0xE0 == SCOA_LONG_REPEAT:
                 nr = (b & self.UINT_5_MASK) << 3
                 nextb = next(biter)
