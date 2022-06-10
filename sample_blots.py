@@ -458,8 +458,8 @@ if __name__ == '__main__':
                 'help': "size of checkered squares (checkerboard mode only)"
             },
             '--mode': {
-                'choices': MODES_FNS.keys(),
-                'default': next(iter(MODES_FNS.keys())),
+                'choices': PATTERNS_FNS.keys(),
+                'default': next(iter(PATTERNS_FNS.keys())),
                 'help': 'test pattern type, see module for details'
             },
             '--out_file': {
@@ -495,7 +495,7 @@ if __name__ == '__main__':
     if args.grate_x: gx = int(args.grate_x)
     gy = h+1
     if args.grate_y: gy = int(args.grate_y)
-    mkfn_px = MODES_FNS[args.mode]
+    mkfn_px = PATTERNS_FNS[args.mode]
     val = int(args.p5_value)
     csz = int(args.square_size)
     fn_px = mkfn_px(w, h, value=val, grate_x=gx, grate_y=gy, square_size=csz)
