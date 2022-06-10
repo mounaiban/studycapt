@@ -88,7 +88,7 @@ BLOT_FN_CASES_270K = {
 
 class BlotFunctionTests(TestCase):
 
-    def test_p4_samples_270k(self):
+    def test_plot_270k(self):
         for k in BLOT_FN_CASES_270K.keys():
             with self.subTest(test=k):
                 tcase = BLOT_FN_CASES_270K[k]

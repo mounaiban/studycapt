@@ -33,12 +33,12 @@ class ScoaDecoderTests(TestCase):
         },
         'repeat_only': {
             'init_args': {'line_size': LINE_SIZE, 'init_value': b'\xf0'},
-            'test_args': {'np': 0, 'nr': 8, 'rb': b'\xd0'},
+            'test_args': {'np': 0, 'nr': 8, 'rb': 0xD0},
             'expected': b'\xd0\xd0\xd0\xd0\xd0\xd0\xd0\xd0',
         },
         'repeat_then_new': {
             'init_args': {'line_size': LINE_SIZE, 'init_value': b'\xf0'},
-            'test_args': {'nr': 4, 'rb': b'\xde', 'ub': b'\x9a\x9b\x9c\x9d'},
+            'test_args': {'nr': 4, 'rb': 0xDE, 'ub': b'\x9a\x9b\x9c\x9d'},
             'expected': b'\xde\xde\xde\xde\x9a\x9b\x9c\x9d',
         },
         'new_only': {
@@ -48,7 +48,7 @@ class ScoaDecoderTests(TestCase):
         },
         'old_then_repeat': {
             'init_args': {'line_size': LINE_SIZE, 'init_value': b'\xf0'},
-            'test_args': {'np': 4, 'nr': 4, 'rb': b'\xd0'},
+            'test_args': {'np': 4, 'nr': 4, 'rb': 0xD0},
             'expected': b'\xf0\xf0\xf0\xf0\xd0\xd0\xd0\xd0',
         },
         'old_then_new': {
