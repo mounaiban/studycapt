@@ -4,7 +4,7 @@ RLE Test Page Generator
 Create rasters with funky patterns for studying run-length encoding (RLE)
 techniques. Rasters may be output in PBM (P4) or PGM (P5) format.
 
-The original purpose of this module was to reverse-engineer the Smart 
+The original purpose of this module was to reverse-engineer the Smart
 Compression Architecture (SCoA) format primarily used by early-2000s and
 late-1990s Canon laser printers.
 
@@ -258,7 +258,7 @@ def _mk_fn_half_diagonal(w, h, **kwargs):
             y = i_px // img_w
             if y >= (m * x) + c and x%gx and y%gy:
                 yield v
-            # PROTIP: threshold line eq. is y == m * x; m == img_h/img_w
+            # PROTIP: threshold line eq. is y == m * x + c
             else: yield 0x00
 
     return _fn_half_diagonal
