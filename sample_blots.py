@@ -129,6 +129,8 @@ def _mk_fn_checkerboard(w, h, **kwargs):
     img_w = w
     img_h = h
     ssz = kwargs.get('square_size', SQUARE_SIZE_DEFAULT)
+    gx = kwargs.get('grate_x', w+1)
+    gy = kwargs.get('grate_y', h+1)
 
     def _fn_checkerboard(i, n):
         if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
@@ -138,7 +140,8 @@ def _mk_fn_checkerboard(w, h, **kwargs):
             x = i_px % img_w
             odd_row = (y // ssz) & 0x01
             odd_col = (x // ssz) & 0x01
-            if (odd_row and odd_col) or (not odd_row and not odd_col): yield v
+            if ((odd_row and odd_col) or (not odd_row and not odd_col))\
+               and (x%gx and y%gy): yield v
             else: yield 0x0
 
     return _fn_checkerboard
@@ -425,7 +428,8 @@ RESOLUTIONS_F = OrderedDict({
 # Lower resolutions are only intended for illustrative purposes
 
 if __name__ == '__main__':
-    with_g = 'circle, half-diagonal'# modes where grate control is available
+    with_g = 'checkerboard', 'circle', 'half-diagonal'
+        # modes where grate control is available
     parser_spec = {
         'desc': 'Generate PBM P4 for RLE compression studies',
         'help': 'hi',
