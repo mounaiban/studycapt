@@ -131,6 +131,10 @@ def _mk_fn_checkerboard(w, h, **kwargs):
     ssz = kwargs.get('square_size', SQUARE_SIZE_DEFAULT)
     gx = kwargs.get('grate_x', w+1)
     gy = kwargs.get('grate_y', h+1)
+    mleft = kwargs.get('margin_left', 0)
+    # TODO: mleft currently only erases pixels on the left side of
+    # the page. Maybe find a way to move the pattern to the right
+    # without changing it?
 
     def _fn_checkerboard(i, n):
         if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
@@ -141,7 +145,8 @@ def _mk_fn_checkerboard(w, h, **kwargs):
             odd_row = (y // ssz) & 0x01
             odd_col = (x // ssz) & 0x01
             if ((odd_row and odd_col) or (not odd_row and not odd_col))\
-               and (x%gx and y%gy): yield v
+               and (x%gx and y%gy)\
+               and x > mleft: yield v
             else: yield 0x0
 
     return _fn_checkerboard
@@ -252,6 +257,7 @@ def _mk_fn_half_diagonal(w, h, **kwargs):
     gx = kwargs.get('grate_x', w+1)
     gy = kwargs.get('grate_y', h+1)
     v = kwargs.get('value', PX_VALUE_DEFAULT)
+    mleft = kwargs.get('margin_left', 0)
 
     def _fn_half_diagonal(i, n):
         if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
@@ -259,7 +265,7 @@ def _mk_fn_half_diagonal(w, h, **kwargs):
             i_px = i + x
             x = i_px % img_w
             y = i_px // img_w
-            if y >= (m * x) + c and x%gx and y%gy:
+            if x > mleft and y >= (m * (x-mleft)) + c and x%gx and y%gy:
                 yield v
             # PROTIP: threshold line eq. is y == m * x + c
             else: yield 0x00
@@ -430,6 +436,8 @@ RESOLUTIONS_F = OrderedDict({
 if __name__ == '__main__':
     with_g = 'checkerboard', 'circle', 'half-diagonal'
         # modes where grate control is available
+    with_mleft = 'checkerboard', 'half-diagonal'
+        # modes where left margin control is available
     parser_spec = {
         'desc': 'Generate PBM P4 for RLE compression studies',
         'help': 'hi',
@@ -460,6 +468,10 @@ if __name__ == '__main__':
             '--square_size': {
                 'default': SQUARE_SIZE_DEFAULT,
                 'help': "size of checkered squares (checkerboard mode only)"
+            },
+            '--margin_left': {
+                'default': 0,
+                'help': "left margin in pixels ({} only)".format(with_mleft),
             },
             '--mode': {
                 'choices': PATTERNS_FNS.keys(),
@@ -499,10 +511,19 @@ if __name__ == '__main__':
     if args.grate_x: gx = int(args.grate_x)
     gy = h+1
     if args.grate_y: gy = int(args.grate_y)
+    mleft = int(args.margin_left)
     mkfn_px = PATTERNS_FNS[args.mode]
     val = int(args.p5_value)
     csz = int(args.square_size)
-    fn_px = mkfn_px(w, h, value=val, grate_x=gx, grate_y=gy, square_size=csz)
+    fn_px = mkfn_px(
+        w,
+        h,
+        value=val,
+        grate_x=gx,
+        grate_y=gy,
+        margin_left=mleft,
+        square_size=csz,
+    )
     fn_rast = RASTER_OUT_FNS[args.format]
     if True in map(lambda x: x in args.comment, '\x0a\n'):
         raise ValueError('newlines not permitted in comment')
