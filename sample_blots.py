@@ -438,7 +438,7 @@ if __name__ == '__main__':
         # modes where grate control is available
     with_mleft = 'checkerboard', 'half-diagonal'
         # modes where left margin control is available
-    parser_spec = {
+    parser_spec = OrderedDict({
         'desc': 'Generate PBM P4 for RLE compression studies',
         'help': 'hi',
         'args': {
@@ -491,7 +491,7 @@ if __name__ == '__main__':
                 'help': 'one-liner comment to embed in output'
             }
         }
-    }
+    })
     parser = ArgumentParser(description=parser_spec['desc'])
     for k_arg in parser_spec['args']:
         spec_arg = parser_spec['args'][k_arg]

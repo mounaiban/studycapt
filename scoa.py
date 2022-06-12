@@ -32,22 +32,22 @@ import pdb
 from itertools import chain
 from os.path import expanduser
 
-SCOA_OLD_NEW = 0b00_000000 # uncompressed bytes (old+new)
-SCOA_OLD_REPEAT = 0b01_000000 # compressed bytes (old+repeat)
-SCOA_REPEAT_NEW = 0b11_000000 # compressed + uncompressed bytes (repeat+new)
+SCOA_OLD_NEW = 0b00 << 6 # uncompressed bytes (old+new)
+SCOA_OLD_REPEAT = 0b01 << 6
+SCOA_REPEAT_NEW = 0b11 << 6 # compressed + uncompressed bytes (repeat+new)
 # CopyLong commands; SCOA_LO opcodes must come after SCOA_LONG_OLDB [_248]
-SCOA_LONG_OLDB = 0b100_00000
+SCOA_LONG_OLDB = 0b100 << 5
 SCOA_LONG_OLDB_248 = 0x9F
-SCOA_LOLD_NEWB = 0b00_000000
-SCOA_LOLD_REPEAT = 0b01_000000
-SCOA_LOLD_WITH_LONG = 0b101_00000
-SCOA_LOLD_REPEAT_LONG = 0b10_000000
-SCOA_LOLD_NEW_LONG = 0b11_000000
+SCOA_LOLD_NEWB = 0b00 << 6
+SCOA_LOLD_REPEAT = 0b010 << 6
+SCOA_LOLD_WITH_LONG = 0b101 << 5
+SCOA_LOLD_REPEAT_LONG = 0b10 << 6
+SCOA_LOLD_NEW_LONG = 0b11 << 6
 # RepeatLong commands; SCOA_LR opcodes must come after SCOA_LONG_REPEAT
-SCOA_LONG_REPEAT = 0b101_00000
-SCOA_LR_LONG_NEW_ONLY = 0b11_000000
-SCOA_LR_ONLY = 0b10_000000
-SCOA_LR_NEWB = 0b00_000000
+SCOA_LONG_REPEAT = 0b101 << 5
+SCOA_LR_LONG_NEW_ONLY = 0b11 << 6
+SCOA_LR_ONLY = 0b10 << 6
+SCOA_LR_NEWB = 0b00 << 6
 # Control commands
 SCOA_NOP = 0x40
 SCOA_EOL = 0x41
@@ -63,9 +63,9 @@ class SCoADecoder:
     passed to the Decoder.
 
     """
-    UINT_3_MASK_HI = 0b00_111_000
-    UINT_3_MASK_LO = 0b00_000_111
-    UINT_5_MASK = 0b000_11111
+    UINT_3_MASK_HI = 0b00111 << 3
+    UINT_3_MASK_LO = 0b00000111
+    UINT_5_MASK = 0b00011111
 
     def __repr__(self):
         # Format for current_op: (np, nr, nu)
@@ -160,7 +160,7 @@ class SCoADecoder:
         self._i_in = 0
         np = 0 # number of bytes from previous line
         npx = 0 # number of 0x9f opcodes (np, extended)
-        nl: int # pre-count for SCOA_LOLD_WITH_LONG-related opcodes
+        nl = 0 # pre-count for SCOA_LOLD_WITH_LONG-related opcodes
         nr = 0 # number of bytes to repeat
         nu = 0 # number of uncompressed bytes to pass to output
         rb = 0 # repeating byte as integer value (e.g. 0xFF => 255)
