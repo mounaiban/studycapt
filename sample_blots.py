@@ -46,6 +46,7 @@ PX_VALUE_DEFAULT = 127
 P4_MIN_VALUE = 127
 P5_MAX_VALUE = 255
 INDEX_ERROR_FMT = "index {} out of bounds"
+SQUARE_SIZE_DEFAULT = 64
 
 # Plotting & Blotting Functions
 
@@ -96,7 +97,6 @@ INDEX_ERROR_FMT = "index {} out of bounds"
 # structure to a hex code: primary red is 0xFF0000, primary green is
 # 0x00FF00 and primary blue is 0x0000FF.
 #
-SQUARE_SIZE_DEFAULT = 64
 
 def _mk_fn_all_clear(w, h, **kwargs):
     """Create a function that yields pixels for a blank page"""
