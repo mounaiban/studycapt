@@ -45,10 +45,10 @@ SCOA_LOLD_REPEAT_LONG = 0b10 << 6
 SCOA_LOLD_NEW_LONG = 0b11 << 6
 # RepeatLong commands; SCOA_LR opcodes must come after SCOA_LONG_REPEAT
 SCOA_LONG_REPEAT = 0b101 << 5
-SCOA_LR_LONG_NEW_ONLY = 0b11 << 6
 SCOA_LR_LONG_NEW_REPEAT = 0b01 << 6
-SCOA_LR_OLD_REPEAT_LONG = 0b10 << 6
 SCOA_LR_NEWB = 0b00 << 6
+SCOA_LR_OLD_NEW_LONG = 0b11 << 6
+SCOA_LR_OLD_REPEAT_LONG = 0b10 << 6
 # Control commands
 SCOA_NOP = 0x40
 SCOA_EOL = 0x41
@@ -235,10 +235,11 @@ class SCoADecoder:
             elif b & 0xE0 == SCOA_LONG_REPEAT:
                 nr = (b & self.UINT_5_MASK) << 3
                 nextb = next(biter)
-                if nextb & 0xC0 == SCOA_LR_LONG_NEW_ONLY:
+                if nextb & 0xC0 == SCOA_LR_OLD_NEW_LONG:
                     nu = nr
                     nu |= (nextb & self.UINT_3_MASK_HI) >> 3
                     nr = 0
+                    np |= nextb & self.UINT_3_MASK_LO
                     ub = (next(biter) for i in range(nu))
                     self._i_in += nu + 1
                 elif nextb & 0xC0 == SCOA_LR_LONG_NEW_REPEAT:
