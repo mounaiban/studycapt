@@ -35,7 +35,7 @@ from os.path import expanduser
 SCOA_OLD_NEW = 0b00 << 6 # uncompressed bytes (old+new)
 SCOA_OLD_REPEAT = 0b01 << 6
 SCOA_REPEAT_NEW = 0b11 << 6 # compressed + uncompressed bytes (repeat+new)
-# CopyLong commands; SCOA_LO opcodes must come after SCOA_LONG_OLDB [_248]
+# CopyLong commands; SCOA_LOLD opcodes must come after SCOA_LONG_OLDB [_248]
 SCOA_LONG_OLDB = 0b100 << 5
 SCOA_LONG_OLDB_248 = 0x9F
 SCOA_LOLD_NEWB = 0b00 << 6
