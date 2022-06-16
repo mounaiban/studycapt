@@ -189,10 +189,15 @@ class SCoADecoder:
                 self._i_in += 1
             elif b & 0xC0 == SCOA_REPEAT_NEW:
                 nr = (b & self.UINT_3_MASK_HI) >> 3
-                rb = next(biter)
                 nu = b & self.UINT_3_MASK_LO
-                ub = (next(biter) for i in range(nu))
-                self._i_in += nu
+                if nr > 0 and nu > 0:
+                    # work around repeat+new with zero counts,
+                    # suspected to be captfilter encoder bugs,
+                    # by holding back input iterator and writing
+                    # out zeroes instead
+                    rb = next(biter)
+                    ub = (next(biter) for i in range(nu))
+                    self._i_in += nu
             # three-bit opcodes with two-bit subcommand opcode
             elif b & 0xE0 == SCOA_LONG_OLDB:
                 while b == SCOA_LONG_OLDB_248:
