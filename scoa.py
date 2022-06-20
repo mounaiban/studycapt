@@ -75,12 +75,15 @@ class SCoADecoder:
         # np - number of bytes from previous line
         # nr - number of repeated new bytes
         # nu - number of new bytes
+        op_hex = (hex(x) for x in (self._b1, self._b2, self._b3) if x)
+        op_9f = (hex(SCOA_LONG_OLDB_248),) * self._count_9f
         stats = {
             'line_size': self.line_size,
             'i_buf': self._i_buf,
             'i_line': self._i_line,
             'i_in': hex(self._i_in),
-            'current_op': self._current_op,
+            'op': tuple(chain(op_9f, op_hex)),
+            'counts': self._counts,
         }
         return "{} <status: {}>".format(self.__class__.__name__, stats)
 
@@ -107,9 +110,13 @@ class SCoADecoder:
 
         self.line_size = line_size
         self._init_value = initv
+        self._b1 = None # opcode first byte
+        self._b2 = None #  second byte
+        self._b3 = None #  third byte
         self._buffer = [ord(initv),] * self.line_size
         self._buffer_b = [ord(initv),] * self.line_size
-        self._current_op = (0,0,0)
+        self._count_9f = 0
+        self._counts = (0,0,0)
         self._i_line = 0
         self._i_buf = 0 # indices are in the object, because this allows
         self._i_in = 0  # monitoring to enable progress reports
@@ -171,6 +178,10 @@ class SCoADecoder:
         #
         # parsing (like opcode decode)
         for b in biter:
+            #
+            # first byte
+            #
+            self._b1 = b
             if b == SCOA_NOP:
                 pass
             elif b == SCOA_EOL:
@@ -211,8 +222,10 @@ class SCoADecoder:
                     # to handle the case where 0x9f is extending
                     # another SCOA_LONG_OLDB opcode
                     np = (b & self.UINT_5_MASK) << 3
+                    self._b1 = b
                     b = next(biter)
                     self._i_in += 1
+                self._b2 = b
                 if b & 0xC0 == SCOA_LOLD_NEWB:
                     np |= b & self.UINT_3_MASK_LO
                     nu = (b & self.UINT_3_MASK_HI) >> 3
@@ -226,6 +239,7 @@ class SCoADecoder:
                 elif b & 0xE0 == SCOA_LOLD_WITH_LONG:
                     nl = (b & self.UINT_5_MASK) << 3
                     b = next(biter)
+                    self._b3 = b
                     self._i_in += 1
                     if b & 0xC0 == SCOA_LOLD_REPEAT_LONG:
                         nr |= nl
@@ -242,6 +256,7 @@ class SCoADecoder:
             elif b & 0xE0 == SCOA_LONG_REPEAT:
                 nr = (b & self.UINT_5_MASK) << 3
                 nextb = next(biter)
+                self._b2 = nextb
                 if nextb & 0xC0 == SCOA_LR_OLD_NEW_LONG:
                     nu = nr
                     nu |= (nextb & self.UINT_3_MASK_HI) >> 3
@@ -280,12 +295,16 @@ class SCoADecoder:
             # We are currently using a discard/truncate policy for
             # excess bytes.
             total_np = 248*npx + np
-            self._current_op = (total_np, nr, nu)
+            self._count_9f = npx
+            self._counts = (total_np, nr, nu)
             for x in self._writeout(np=total_np, nr=nr, rb=rb, ub=ub):
                 if self._i_buf >= self.line_size: break
                 self._buffer_b[self._i_buf] = x
                 yield x
                 self._i_buf += 1
+            self._b1 = None
+            self._b2 = None
+            self._b3 = None
             np = 0
             npx = 0
             nr = 0
