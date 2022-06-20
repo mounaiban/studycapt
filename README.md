@@ -31,8 +31,9 @@ parallel printer/IEEE 1284 ports are currently not supported.
 A Python module to extract data from CAPT job files or streams that contain or
 transport print data for/to print devices.
 
-The `CAPTStream` object in this module contains a method, `get_page()`, for easily
-decompressing rasters from job files.
+The `CAPTStream` object in this module contains a convenience method, `get_page()`,
+which extracts rasters from job files and optionally uses `scoa.py` to decompress
+them.
 
 ```python
 # WARNING: 'output_file.pbm' will be overwritten without further warning.
