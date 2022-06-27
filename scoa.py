@@ -211,7 +211,8 @@ class SCoADecoder:
                     rb = next(biter)
                     ub = (next(biter) for i in range(nu))
                     self._i_in += nu
-            # three-bit opcodes with two-bit subcommand opcode
+                else:
+                    ub = (0x0 for i in range(nu))
             elif b & 0xE0 == SCOA_LONG_OLDB:
                 while b == SCOA_LONG_OLDB_248:
                     npx += 1
