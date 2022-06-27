@@ -290,18 +290,18 @@ class SCoADecoder:
                 raise ValueError('unrecognised opcode', report)
             self._i_in += 1
             # writeout (like opcode execution)
-            # TODO: Implement optional halt policy that stops decoding
-            # when a line has too many bytes?
-            # We are currently using a discard/truncate policy for
-            # excess bytes.
             total_np = 248*npx + np
             self._count_9f = npx
             self._counts = (total_np, nr, nu)
             for x in self._writeout(np=total_np, nr=nr, rb=rb, ub=ub):
-                if self._i_buf >= self.line_size: break
                 self._buffer_b[self._i_buf] = x
                 yield x
                 self._i_buf += 1
+                if self._i_buf >= self.line_size:
+                    # move on to the next line if line is full
+                    self._i_line += 1
+                    self._i_buf = 0
+                    self._buffer = self._buffer_b.copy()
             self._b1 = None
             self._b2 = None
             self._b3 = None
