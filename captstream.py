@@ -1,3 +1,4 @@
+#! /bin/python
 """
 CAPT Job File and Stream Toolkit for Python
 
@@ -29,6 +30,10 @@ and transport format for print data.
 #
 
 import pdb
+from argparse import ArgumentParser
+from collections import OrderedDict
+from os.path import expanduser
+from sys import stdin, stdout
 try:
     from scoa import SCoADecoder
 except ModuleNotFoundError:
@@ -311,3 +316,59 @@ def WORD(lo, hi):
     # NOTE: Ported from captdriver, see src/word.h
     return (int(hi) << 8) | int(lo)
 
+# Command-line support
+ACT_INFO = 'info'
+ACT_EXTRACT = 'extract'
+
+def _get_writer(path):
+    if path: return open(path, mode='xb')
+    else: return stdout.buffer
+
+if __name__ == '__main__':
+    parser_spec = OrderedDict({
+        'desc': 'View information and extract pages from CAPT job files',
+        'args': {
+            'action': {
+                'help': "select action",
+                'choices': (ACT_INFO, ACT_EXTRACT)
+            },
+            'capt_file': {
+                'help': "path to job file; standard input is not supported yet"
+            },
+            '--out_file': {
+                'help': 'path to output file (use standard output if not set)'
+            },
+            '--out_format': {
+                'default': 'p4',
+                'help': "output format for the 'extract' action",
+                'choices': ('raw', 'p4')
+            },
+            '--page': {
+                'default': 1,
+                'help': 'select page (use first page if not set)',
+            },
+        }
+    })
+    parser = ArgumentParser(description=parser_spec['desc'])
+    args_spec = parser_spec['args']
+    for k_arg in args_spec:
+        sp = args_spec[k_arg]
+        parser.add_argument(
+            k_arg,
+            default=sp.get('default'),
+            choices=sp.get('choices'),
+            help=sp.get('help')
+        )
+    args = parser.parse_args()
+    in_path = expanduser(args.capt_file)
+    cs = CAPTStream(in_path)
+    if args.action == ACT_EXTRACT:
+        with _get_writer(args.out_file) as fh:
+            fh.write(cs.get_page(int(args.page), args.out_format))
+    elif args.action == ACT_INFO:
+        print("capt_version={}".format(cs._config['version']))
+        print("capt_codec={}".format(cs._config['codec_name']))
+    else:
+        raise NotImplementedError(
+            "action '{}' not implemented".format(args.action)
+        )

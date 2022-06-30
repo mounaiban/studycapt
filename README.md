@@ -31,17 +31,21 @@ parallel printer/IEEE 1284 ports are currently not supported.
 A Python module to extract data from CAPT job files or streams that contain or
 transport print data for/to print devices.
 
-The `CAPTStream` object in this module contains a convenience method, `get_page()`,
-which extracts rasters from job files and optionally uses `scoa.py` to decompress
-them.
+This module may be run as a command, like in this Unix-like shell example:
 
-```python
-# WARNING: 'output_file.pbm' will be overwritten without further warning.
-
->>> capts = CAPTStream('input_file.capt')
->>> with open('output_file.pbm', mode='wb') as fh: fh.write(capts.get_page(1, out_format='p4'))
-... # press enter/return here
+```sh
+./captstream.py extract --page=1 --out_file=output_file.pbm input_file.capt
 ```
+
+To use standard output, just skip `--out_file`:
+
+```sh
+# WARNING: Ordinary files will be overwritten without warning
+./captstream.py extract --page=1 input_file.capt > output_dest
+```
+
+If on Microsoft Windows, try ``python captstream.py extract --page=1 --out_file=output_file.pbm input_file.capt``
+in cmd.exe.
 
 ### [in2pbmp4.sh](in2pbmp4.sh) (Input to PBM P4 Image Script)
 A script originally created to help visualise arbitrary data as a PBM P4
