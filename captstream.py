@@ -88,13 +88,15 @@ class CAPTStream:
             'version': 1,
         },
         2: { # CAPT 2
+            # TODO: Hi-SCOA requires additional arguments which are not
+            # yet written out. Extracted pages will not be recoverable.
             'paging_opcodes': [
                     CAPT_RASTER_SETUP, CAPT_HISCOA_PARAMS, HISCOA_RASTER_DATA
                 ],
             'page_header_size': 118,
             'raster_data_opcode': HISCOA_RASTER_DATA,
             'raster_end_opcode': CAPT_RASTER_END,
-            'codec_name': 'HISCOA',
+            'codec_name': 'HSCA',
             'version': 2,
         },
     } # NOTE: keys are int's, not str's
