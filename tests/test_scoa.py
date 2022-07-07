@@ -122,18 +122,18 @@ class ScoaDecoderTests(TestCase):
             'expected': b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xa0\xa0\xa0\xa0',
         },
         'eol_full_line': {
-            'init_args': {'line_size': LINE_SIZE, 'init_value': b'\xf0'},
+            'init_args': {'line_size': 8, 'init_value': b'\xf0'},
             'input': b'\xe4\x9a\xa0\xa1\xa2\xa3\x41',
             'expected': b'\x9a\x9a\x9a\x9a\xa0\xa1\xa2\xa3'*2
         },
         'eol_half_line': {
-            'init_args': {'line_size': LINE_SIZE, 'init_value': b'\xf0'},
-            'input': b'\xf9\x00\x00\xe0\xff\x41',
+            'init_args': {'line_size': 8, 'init_value': b'\xf0'},
+            'input': b'\xf9\x00\x00\x60\xff\x41',
             'expected': b'\x00\x00\x00\x00\x00\x00\x00\x00\xff\xff\xff\xff\x00\x00\x00\x00'
         },
         'eol_half_line_2x': {
-            'init_args': {'line_size': LINE_SIZE, 'init_value': b'\xf0'},
-            'input': b'\xf9\x00\x00\xe0\xff\x41\x41',
+            'init_args': {'line_size': 8, 'init_value': b'\xf0'},
+            'input': b'\xf9\x00\x00\x60\xff\x41\x41',
             'expected': b''.join((b'\x00'*8, b'\xff\xff\xff\xff\x00\x00\x00\x00'*2))
         }
     }
