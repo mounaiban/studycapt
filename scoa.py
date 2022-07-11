@@ -24,11 +24,12 @@ printers.
 
 # NOTES
 # =====
-# * This module only deals with compression, an upcoming, separate
-#   module will handle print data extraction from CAPT job files.
+# * This module only deals with compression, please use captstream.py
+#   to extract print data from job files produced by captfilter.
 # 
-# * The decompression routine in SCoADecoder.decode() is still not
-#   quite correct; investigations and remedies are on the way...
+# * SCoADecoder.decode() is currently being validated. It is now able
+#   to decompress all test pages correctly, but further tests are
+#   requried to confirm the accuracy of the decoder.
 #
 import pdb
 from itertools import chain
@@ -152,9 +153,6 @@ class SCoADecoder:
 
         Return a generator yielding uncompressed bytes.
 
-        NOTE: The decoder is still not 100% complete and will produce
-        a generally-legible but glitched result.
-
         Example
         -------
         decoder = SCoADecoder(596)    # A4 width
@@ -175,8 +173,6 @@ class SCoADecoder:
         nu = 0 # number of uncompressed bytes to pass to output
         rb = 0 # repeating byte as integer value (e.g. 0xFF => 255)
         ub = () # uncompressed byte(s)
-        #
-        # parsing (like opcode decode)
         for b in biter:
             #
             # first byte
@@ -189,7 +185,6 @@ class SCoADecoder:
             elif b == SCOA_EOP:
                 return
                 # raise StopIteration
-            # two-bit opcodes
             elif b & 0xC0 == SCOA_OLD_NEW:
                 np = (b & self.UINT_3_MASK_LO)
                 nu = (b & self.UINT_3_MASK_HI) >> 3
@@ -204,16 +199,19 @@ class SCoADecoder:
                 nr = (b & self.UINT_3_MASK_HI) >> 3
                 nu = b & self.UINT_3_MASK_LO
                 if nr > 0 and nu > 0:
-                    # work around repeat+new with zero counts,
-                    # suspected to be captfilter encoder bugs,
-                    # by holding back input iterator and writing
-                    # out zeroes instead
                     rb = next(biter)
                     ub = (next(biter) for i in range(nu))
                     self._i_in += nu
                 else:
+                    # work around repeat+new with zero counts,
+                    # suspected to be captfilter encoder bugs,
+                    # by holding back input iterator and writing
+                    # out zeroes instead
                     ub = (0x0 for i in range(nu))
             elif b & 0xE0 == SCOA_LONG_OLDB:
+                #
+                # 0x9f or second byte (with old_Long)
+                #
                 while b == SCOA_LONG_OLDB_248:
                     npx += 1
                     b = next(biter)
@@ -238,6 +236,9 @@ class SCoADecoder:
                     rb = next(biter)
                     self._i_in += 1
                 elif b & 0xE0 == SCOA_LOLD_WITH_LONG:
+                    #
+                    # third byte (with old_Long)
+                    #
                     nl = (b & self.UINT_5_MASK) << 3
                     b = next(biter)
                     self._b3 = b
@@ -255,6 +256,9 @@ class SCoADecoder:
                         ub = (next(biter) for i in range(nu))
                         self._i_in += nu
             elif b & 0xE0 == SCOA_LONG_REPEAT:
+                #
+                # second byte (no old_Long)
+                #
                 nr = (b & self.UINT_5_MASK) << 3
                 nextb = next(biter)
                 self._b2 = nextb
