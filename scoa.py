@@ -186,8 +186,6 @@ class SCoADecoder:
             elif b & 0xC0 == SCOA_OLD_NEW:
                 np = (b & self.UINT_3_MASK_LO)
                 nu = (b & self.UINT_3_MASK_HI) >> 3
-                ub = (next(biter) for i in range(nu))
-                self._i_in += nu
             elif b & 0xC0 == SCOA_OLD_REPEAT:
                 np = (b & self.UINT_3_MASK_LO)
                 nr = (b & self.UINT_3_MASK_HI) >> 3
@@ -198,14 +196,13 @@ class SCoADecoder:
                 nu = b & self.UINT_3_MASK_LO
                 if nr > 0 and nu > 0:
                     rb = next(biter)
-                    ub = (next(biter) for i in range(nu))
-                    self._i_in += nu
                 else:
                     # work around repeat+new with zero counts,
                     # suspected to be captfilter encoder bugs,
                     # by holding back input iterator and writing
                     # out zeroes instead
                     ub = (0x0 for i in range(nu))
+                    nu = 0
             elif b & 0xE0 == SCOA_LONG_OLDB:
                 #
                 # 0x9f or second byte (with old_Long)
@@ -226,8 +223,6 @@ class SCoADecoder:
                 if b & 0xC0 == SCOA_LOLD_NEWB:
                     np |= b & self.UINT_3_MASK_LO
                     nu = (b & self.UINT_3_MASK_HI) >> 3
-                    ub = (next(biter) for i in range(nu))
-                    self._i_in += nu
                 elif b & 0xC0 == SCOA_LOLD_REPEAT:
                     np |= b & self.UINT_3_MASK_LO
                     nr = (b & self.UINT_3_MASK_HI) >> 3
@@ -251,8 +246,6 @@ class SCoADecoder:
                         nu |= nl
                         nu |= (b & self.UINT_3_MASK_HI) >> 3
                         np |= b & self.UINT_3_MASK_LO
-                        ub = (next(biter) for i in range(nu))
-                        self._i_in += nu
             elif b & 0xE0 == SCOA_LONG_REPEAT:
                 #
                 # second byte (no old_Long)
@@ -265,15 +258,12 @@ class SCoADecoder:
                     nu |= (nextb & self.UINT_3_MASK_HI) >> 3
                     nr = 0
                     np |= nextb & self.UINT_3_MASK_LO
-                    ub = (next(biter) for i in range(nu))
-                    self._i_in += nu + 1
                 elif nextb & 0xC0 == SCOA_LR_LONG_NEW_REPEAT:
                     nu = nr
                     nu |= nextb & self.UINT_3_MASK_LO
                     nr = (nextb & self.UINT_3_MASK_HI) >> 3
                     rb = next(biter)
-                    ub = (next(biter) for i in range(nu))
-                    self._i_in += nu + 1
+                    self._i_in += 1
                 elif nextb & 0xC0 == SCOA_LR_OLD_REPEAT_LONG:
                     nr |= (nextb & self.UINT_3_MASK_HI) >> 3
                     np |= nextb & self.UINT_3_MASK_LO
@@ -283,8 +273,7 @@ class SCoADecoder:
                     nr |= (nextb & self.UINT_3_MASK_HI) >> 3
                     nu = (nextb & self.UINT_3_MASK_LO)
                     rb = next(biter)
-                    ub = (next(biter) for i in range(nu))
-                    self._i_in += nu + 1
+                    self._i_in += 1
             else:
                 report = {
                     'offset': self._i_in,
@@ -296,6 +285,8 @@ class SCoADecoder:
             total_np = 248*npx + np
             self._count_9f = npx
             self._counts = (total_np, nr, nu)
+            if nu > 0:
+                ub = (next(biter) for i in range(nu))
             for x in self._writeout(np=total_np, nr=nr, rb=rb, ub=ub):
                 self._buffer[self._i_buf] = x
                 yield x
