@@ -148,26 +148,17 @@ class ScoaDecoderTests(TestCase):
 
     def test_decode_buffer_full_line(self):
         """The buffer must hold a copy of the previous line"""
-        sd = scoa.SCoADecoder(LINE_SIZE, init_value=b'\xf0')
+        sd = scoa.SCoADecoder(8, init_value=b'\xf0')
         #biter = (x for x in b'\x60\x00\x20\x90\x91\x92\x93') # alt. version
         biter = (x for x in b'\xe4\x00\x90\x91\x92\x93') 
         [x for x in sd.decode(biter)]
         self.assertEqual(bytes(sd._buffer), b'\x00\x00\x00\x00\x90\x91\x92\x93')
 
-    def test_decode_buffer_half_line(self):
-        """Buffer must not change until a whole line is written"""
-        sd = scoa.SCoADecoder(LINE_SIZE, init_value=b'\xf0')
-        biter = iter(b'\x50\x00') # 0x00 four times
-        [x for x in sd.decode(biter)]
-        # PROTIP: generators don't run until they are consumed,
-        # we need to create a comprehension to consume the generator
-        self.assertEqual(bytes(sd._buffer), b'\xf0\xf0\xf0\xf0\xf0\xf0\xf0\xf0')
-
     def test_decode_buffer_overflow(self):
-        """Excess bytes must be discarded when buffer gets full"""
-        sd = scoa.SCoADecoder(LINE_SIZE, init_value=b'\xf0')
+        """Excess bytes must overflow onto the next line"""
+        sd = scoa.SCoADecoder(8, init_value=b'\xf0')
         biter = iter(b'\x78\x90\x50\x91') # 0x90 seven times, 0x91 twice
         out = [x for x in sd.decode(biter)]
-        self.assertEqual(bytes(out), b'\x90\x90\x90\x90\x90\x90\x90\x91')
-        self.assertEqual(bytes(sd._buffer), b'\x90\x90\x90\x90\x90\x90\x90\x91')
+        self.assertEqual(bytes(out), b'\x90\x90\x90\x90\x90\x90\x90\x91\x91')
+        self.assertEqual(bytes(sd._buffer), b'\x91\x90\x90\x90\x90\x90\x90\x91')
 
