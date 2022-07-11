@@ -250,27 +250,27 @@ class SCoADecoder:
                 #
                 # second byte (no old_Long)
                 #
-                nr = (b & self.UINT_5_MASK) << 3
+                nl = (b & self.UINT_5_MASK) << 3
                 nextb = next(biter)
+                self._i_in += 1
                 self._b2 = nextb
                 if nextb & 0xC0 == SCOA_LR_OLD_NEW_LONG:
-                    nu = nr
+                    nu = nl
                     nu |= (nextb & self.UINT_3_MASK_HI) >> 3
-                    nr = 0
                     np |= nextb & self.UINT_3_MASK_LO
                 elif nextb & 0xC0 == SCOA_LR_LONG_NEW_REPEAT:
-                    nu = nr
+                    nu = nl
                     nu |= nextb & self.UINT_3_MASK_LO
                     nr = (nextb & self.UINT_3_MASK_HI) >> 3
                     rb = next(biter)
                     self._i_in += 1
                 elif nextb & 0xC0 == SCOA_LR_OLD_REPEAT_LONG:
-                    nr |= (nextb & self.UINT_3_MASK_HI) >> 3
+                    nr = nl | (nextb & self.UINT_3_MASK_HI) >> 3
                     np |= nextb & self.UINT_3_MASK_LO
                     rb = next(biter)
                     self._i_in += 2
                 elif nextb & 0xC0 == SCOA_LR_NEWB:
-                    nr |= (nextb & self.UINT_3_MASK_HI) >> 3
+                    nr = nl | (nextb & self.UINT_3_MASK_HI) >> 3
                     nu = (nextb & self.UINT_3_MASK_LO)
                     rb = next(biter)
                     self._i_in += 1
