@@ -112,9 +112,16 @@ class ScoaDecoderTests(TestCase):
             'expected': b'\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\xa0\xa1\xa2\xa3',
         },
         'old_long_then_new': {
-            'init_args': {'line_size': LINE_SIZE, 'init_value': b'\xf0'},
-            'input': b'',
-            'expected': b''.join((b'\x00'*255, b'\xff'*745))
+            'init_args': {'line_size': 500, 'init_value': b'\xf0'},
+            'input': b''.join((
+                b'\xbf\xb8\x00\xbe\xa8\x00',
+                b'\x9f\x3a\x1a\x2a\x3a\x4a\x5a\x6a\x7a\x41'
+            )),
+            'expected': b''.join((
+                b'\x00'*500,
+                b'\x00'*250, b'\x1a\x2a\x3a\x4a\x5a\x6a\x7a',
+                b'\x00'*243
+            )),
         },
         'old_then_repeat': {
             'init_args': {'line_size': LINE_SIZE, 'init_value': b'\xf0'},
