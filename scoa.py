@@ -164,14 +164,14 @@ class SCoADecoder:
 
         """
         self._i_in = 0
-        np = 0 # number of bytes from previous line
-        npx = 0 # number of 0x9f opcodes (np, extended)
-        nl = 0 # pre-count for SCOA_LOLD_WITH_LONG-related opcodes
-        nr = 0 # number of bytes to repeat
-        nu = 0 # number of uncompressed bytes to pass to output
-        rb = 0 # repeating byte as integer value (e.g. 0xFF => 255)
-        ub = () # uncompressed byte(s)
         for b in biter:
+            np = 0 # number of bytes from previous line
+            npx = 0 # number of 0x9f opcodes (np, extended)
+            nl = 0 # pre-count for SCOA_LOLD_WITH_LONG-related opcodes
+            nr = 0 # number of bytes to repeat
+            nu = 0 # number of uncompressed bytes to pass to output
+            rb = 0 # repeating byte as integer value (e.g. 0xFF => 255)
+            ub = () # uncompressed byte(s)
             #
             # first byte
             #
@@ -307,12 +307,6 @@ class SCoADecoder:
             self._b1 = None
             self._b2 = None
             self._b3 = None
-            np = 0
-            npx = 0
-            nr = 0
-            nu = 0
-            rb = 0
-            ub = ()
 
 def _read_scoa_file_header(fh):
     """
