@@ -115,7 +115,6 @@ class SCoADecoder:
         self._b2 = None #  second byte
         self._b3 = None #  third byte
         self._buffer = [ord(initv),] * self.line_size
-        self._buffer_b = [ord(initv),] * self.line_size
         self._count_9f = 0
         self._counts = (0,0,0)
         self._i_line = 0
@@ -164,7 +163,6 @@ class SCoADecoder:
         large buffers.
 
         """
-        # current_buf = [self._init_value,] * self.line_size
         self._i_in = 0
         np = 0 # number of bytes from previous line
         npx = 0 # number of 0x9f opcodes (np, extended)
@@ -299,14 +297,13 @@ class SCoADecoder:
             self._count_9f = npx
             self._counts = (total_np, nr, nu)
             for x in self._writeout(np=total_np, nr=nr, rb=rb, ub=ub):
-                self._buffer_b[self._i_buf] = x
+                self._buffer[self._i_buf] = x
                 yield x
                 self._i_buf += 1
                 if self._i_buf >= self.line_size:
                     # move on to the next line if line is full
                     self._i_line += 1
                     self._i_buf = 0
-                    self._buffer = self._buffer_b.copy()
             self._b1 = None
             self._b2 = None
             self._b3 = None
