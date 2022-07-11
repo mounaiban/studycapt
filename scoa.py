@@ -313,11 +313,6 @@ class SCoADecoder:
             nu = 0
             rb = 0
             ub = ()
-            if self._i_buf >= self.line_size:
-                self._i_line += 1
-                self._i_buf = 0
-                self._buffer = self._buffer_b.copy()
-                # PROTIP: cannot just assign buffer to transfer data
 
 def _read_scoa_file_header(fh):
     """
