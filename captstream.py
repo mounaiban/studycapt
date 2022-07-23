@@ -132,6 +132,10 @@ class CAPTStream:
                 self._config = self.CONFIG[version]
         return self._config['version']
 
+    def _get_reader(self):
+        # TODO: implement stdin support
+        pass
+
     def _raster_dims_from_file(self, fh, pg):
         """
         Read raster dimensions from page ``pg`` of the CAPT Job
@@ -240,27 +244,20 @@ class CAPTStream:
         for x in self.extract_packets(b, op_rast_data, op_rast_end):
             yield x
     
-    def get_offsets(self):
+    def get_offsets(self, b):
         """
         Return an iter that yields offsets to page data
+        Offsets Table Format Summary
+        ============================
+        [page_head_off [,hiscoa_params_off], raster_head_off, raster_off]
+
+        page_head_off: Page Header Offset in CAPT file
+
         """
-        # Offsets Table Format Summary
-        # ============================
-        # [page_head_off [,hiscoa_params_off], raster_head_off, raster_off]
-        #
-        # page_head_off: Page Header Offset in CAPT file
-        #
-        # TODO: allow detecting offsets of specific pages, and if
-        # possible, without needing to find offsets of preceding pages.
-        #
         if not self._config: raise ValueError(self.MSG_NO_CONFIG)
         codes = self._config['paging_opcodes']
-        with open(self.path, mode='rb') as fh:
-            fit = (x for x in fh.read())
-            for x in self._packet_first_offsets(fit, codes):
-                x.insert(0, x[0] - self._config['page_header_size'])
-                self.offsets.append(x)
-        return self.offsets
+        for x in self._packet_first_offsets(b, codes):
+            yield [x[0]-self._config['page_header_size'], x[0], x[1]]
         
     def version(self):
         """Return CAPT version as an int"""
@@ -280,14 +277,16 @@ class CAPTStream:
 
         """
         if not self.path: raise ValueError(self.MSG_NO_PATH)
-        if not self.offsets: self.get_offsets()
-            # TODO: make layout detection optional; make ``page``
-            # argument optional and simply get the next page if
-            # there is no page specified.
-        if not self.path: raise ValueError(self.MSG_NO_PATH)
-        if page > len(self.offsets) or page < 1:
-            raise IndexError(self.MSG_INVALID_PAGE)
         with open(self.path, mode='rb') as fh:
+            if not self.offsets:
+                in_iter = (x for x in fh.read())
+                self.offsets = [x for x in self.get_offsets(in_iter)]
+                fh.seek(0)
+                # TODO: make layout detection optional; make ``page``
+                # argument optional and simply get the next page if
+                # there is no page specified.
+            if page > len(self.offsets) or page < 1:
+                raise IndexError(self.MSG_INVALID_PAGE)
             data = None
             header = None
             fmt_name = None
