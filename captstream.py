@@ -113,7 +113,11 @@ class CAPTStream:
         self.path = path
         self.offsets = []  # see get_offsets() for format
         self._config = None
+        self._fh = None
         if path: self._set_config(version=version)
+
+    def __del__(self):
+        if self._fh: self._fh.close() # TODO: is this necessary?
 
     def _set_config(self, version=None):
         """
@@ -126,15 +130,12 @@ class CAPTStream:
         """
         if not self.path:
             if version: self._config = self.CONFIG[version]
-        if not self._config:
-            with open(self.path, mode='rb') as fh:
-                version = self.VERSION_LOOKUP[fh.read(MAGIC_SIZE)]
-                self._config = self.CONFIG[version]
+            self._fh = stdin.buffer
+        else:
+            self._fh = open(self.path, mode='rb')
+            version = self.VERSION_LOOKUP[self._fh.read(MAGIC_SIZE)]
+            self._config = self.CONFIG[version]
         return self._config['version']
-
-    def _get_reader(self):
-        # TODO: implement stdin support
-        pass
 
     def _raster_dims_from_file(self, fh, pg):
         """
@@ -142,6 +143,7 @@ class CAPTStream:
         file opened by file handle ``fh``.
         """
         off = self.offsets[pg-1][1] # raster metadata
+        fh.seek(0)
         fh.seek(off + PACKET_HEADER_SIZE + RASTER_LINE_WIDTH_OFFSET)
         w_raw = fh.read(2)
         line_size = WORD(w_raw[0], w_raw[1])
@@ -277,40 +279,40 @@ class CAPTStream:
 
         """
         if not self.path: raise ValueError(self.MSG_NO_PATH)
-        with open(self.path, mode='rb') as fh:
-            if not self.offsets:
-                in_iter = (x for x in fh.read())
-                self.offsets = [x for x in self.get_offsets(in_iter)]
-                fh.seek(0)
-                # TODO: make layout detection optional; make ``page``
-                # argument optional and simply get the next page if
-                # there is no page specified.
-            if page > len(self.offsets) or page < 1:
-                raise IndexError(self.MSG_INVALID_PAGE)
-            data = None
-            header = None
-            fmt_name = None
-            dims = self._raster_dims_from_file(fh, pg=page)
-            fh.seek(self.offsets[page-1][-1]) # raster offset
-            in_iter = (x for x in fh.read())
-            if out_format == 'raw':
-                data = bytes(self.extract_raster_packets(in_iter))
-                out_fmt = self._config['codec_name']
-                header = HEADER_FMT.format(
-                    fmt=out_fmt,
-                    w=dims[0]*8,
-                    h=dims[1],
-                    size=len(data)
-                )
-            elif out_format == 'p4':
-                if not SCoADecoder: ValueError(self.MSG_NO_DECODER)
-                decoder = SCoADecoder(line_size=dims[0])
-                raw_iter = self.extract_raster_packets(in_iter)
-                data = bytes(decoder.decode(raw_iter))
-                header = P4_HEADER_FMT.format(w=dims[0]*8, h=dims[1])
-            else:
-                raise ValueError(self.MSG_UNKNOWN_FORMAT)
-            return b''.join((bytes(header, encoding='ascii'), data))
+        if not self.offsets:
+            self._fh.seek(0)
+            in_iter = (x for x in self._fh.read())
+            self.offsets = [x for x in self.get_offsets(in_iter)]
+            # TODO: make layout detection optional; make ``page``
+            # argument optional and simply get the next page if
+            # there is no page specified.
+        if page > len(self.offsets) or page < 1:
+            raise IndexError(self.MSG_INVALID_PAGE)
+        data = None
+        header = None
+        fmt_name = None
+        dims = self._raster_dims_from_file(self._fh, pg=page)
+        self._fh.seek(0)
+        self._fh.seek(self.offsets[page-1][-1]) # raster offset
+        in_iter = (x for x in self._fh.read())
+        if out_format == 'raw':
+            data = bytes(self.extract_raster_packets(in_iter))
+            out_fmt = self._config['codec_name']
+            header = HEADER_FMT.format(
+                fmt=out_fmt,
+                w=dims[0]*8,
+                h=dims[1],
+                size=len(data)
+            )
+        elif out_format == 'p4':
+            if not SCoADecoder: ValueError(self.MSG_NO_DECODER)
+            decoder = SCoADecoder(line_size=dims[0])
+            raw_iter = self.extract_raster_packets(in_iter)
+            data = bytes(decoder.decode(raw_iter))
+            header = P4_HEADER_FMT.format(w=dims[0]*8, h=dims[1])
+        else:
+            raise ValueError(self.MSG_UNKNOWN_FORMAT)
+        return b''.join((bytes(header, encoding='ascii'), data))
 
 def WORD(lo, hi):
     """Get integer from 16-bit little-endian word"""
