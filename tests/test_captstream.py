@@ -23,22 +23,62 @@ class CAPTStreamTests(TestCase):
     # extract_packet() tests
     #
     CARRIER_OPCODE = b'\x30\xa0'
-    OTHER_OPCODE = b'\x30\xb0'
-    END_OPCODE = b'\x30\xD0'
+    OTHER_OPCODE = b'\x40\xb0'
+    END_OPCODE = b'\x50\xd0'
     EXTRACT_PACKET_CASES = {
         'contiguous': {
             'input': b''.join((
                 CARRIER_OPCODE, b'\x08\x00', b'\x9a'*4,
                 CARRIER_OPCODE, b'\x08\x00', b'\x9b'*4,
-                END_OPCODE,
+                END_OPCODE, b'\x04\x00',
             )),
             'expected': b'\x9a\x9a\x9a\x9a\x9b\x9b\x9b\x9b',
+        },
+        'contiguous_n': {
+            'input': b''.join((
+                CARRIER_OPCODE, b'\x08\x00', b'\x9a'*4,
+                CARRIER_OPCODE, b'\x08\x00', b'\x9b'*4,
+                END_OPCODE, b'\x04\x00',
+            )),
+            'n': 1,
+            'expected': b'\x9a\x9a\x9a\x9a',
+        },
+        'contiguous_n_yield_end': {
+            'input': b''.join((
+                CARRIER_OPCODE, b'\x08\x00', b'\x9a'*4,
+                CARRIER_OPCODE, b'\x08\x00', b'\x9b'*4,
+                END_OPCODE, b'\x06\x00', b'\x9c'*2,
+            )),
+            'n': 1,
+            'yield_end': True,
+            'expected': b'\x9a\x9a\x9a\x9a',
+        },
+        'contiguous_n_yield_early_end': {
+            'input': b''.join((
+                CARRIER_OPCODE, b'\x08\x00', b'\x9a'*4,
+                CARRIER_OPCODE, b'\x08\x00', b'\x9b'*4,
+                END_OPCODE, b'\x06\x00', b'\x9c'*2,
+                CARRIER_OPCODE, b'\x08\x00', b'\x9c'*4,
+                CARRIER_OPCODE, b'\x08\x00', b'\x9d'*4,
+            )),
+            'n': 4,
+            'yield_end': True,
+            'expected': b'\x9a\x9a\x9a\x9a\x9b\x9b\x9b\x9b\x9c\x9c',
+        },
+        'contiguous_yield_end': {
+            'yield_end': True,
+            'input': b''.join((
+                CARRIER_OPCODE, b'\x08\x00', b'\x9a'*4,
+                CARRIER_OPCODE, b'\x08\x00', b'\x9b'*4,
+                END_OPCODE, b'\x06\x00', b'\x9c'*2,
+            )),
+            'expected': b'\x9a\x9a\x9a\x9a\x9b\x9b\x9b\x9b\x9c\x9c',
         },
         'contiguous_truncated': {
             'input': b''.join((
                 CARRIER_OPCODE, b'\x08\x00', b'\x9a'*4,
                 CARRIER_OPCODE, b'\x08\x00', b'\x9b'*4,
-                END_OPCODE,
+                END_OPCODE, b'\x04\x00',
                 CARRIER_OPCODE, b'\x08\x00', b'\x9c'*4,
                 CARRIER_OPCODE, b'\x08\x00', b'\x9d'*4,
             )),
@@ -49,7 +89,7 @@ class CAPTStreamTests(TestCase):
                 CARRIER_OPCODE, b'\x08\x00', b'\x9a'*4,
                 OTHER_OPCODE, b'\x08\x00', b'\x00'*4,
                 CARRIER_OPCODE, b'\x08\x00', b'\x9b'*4,
-                END_OPCODE,
+                END_OPCODE, b'\x04\x00',
             )),
             'expected': b'\x9a\x9a\x9a\x9a\x9b\x9b\x9b\x9b',
         },
@@ -59,7 +99,7 @@ class CAPTStreamTests(TestCase):
                 OTHER_OPCODE, b'\x08\x00', b'\x00'*4,
                 CARRIER_OPCODE, b'\x08\x00', b'\x9b'*4,
                 OTHER_OPCODE, b'\x08\x00', b'\x00'*4,
-                END_OPCODE,
+                END_OPCODE, b'\x04\x00',
                 OTHER_OPCODE, b'\x08\x00', b'\x00'*4,
                 CARRIER_OPCODE, b'\x08\x00', b'\x9c'*4,
             )),
@@ -71,9 +111,11 @@ class CAPTStreamTests(TestCase):
         for k in self.EXTRACT_PACKET_CASES.keys():
             with self.subTest(test=k):
                 tcase = self.EXTRACT_PACKET_CASES[k]
+                n = tcase.get('n')
+                yend = tcase.get('yield_end', False)
                 in_iter = (x for x in tcase['input'])
                 sample = bytes(self.cfi.extract_packets(
-                    in_iter, self.CARRIER_OPCODE, self.END_OPCODE
+                    in_iter, self.CARRIER_OPCODE, self.END_OPCODE, n, yend
                 ))
                 expected = tcase['expected']
                 self.assertEqual(sample, expected)

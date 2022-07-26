@@ -202,35 +202,49 @@ class CAPTStream:
             last_byte = x
             i += 1
 
-    def extract_packets(self, b, opcode, end_code):
+    def extract_packets(self, b, opcode, end_code, n=None, yield_end=False):
         """
-        Extract CAPT packets of a specific ``opcode``, exit when
-        a terminating packet of opcode ``end_code`` is detected.
+        Extract CAPT packets of a specific ``opcode``, from the
+        yielded bytes of a byte iterator ``b``. Stop when n packets
+        are extracted, or when a terminating opcode ``end_code`` is
+        encountered, whichever comes first.
 
         Returned data is yielded via an iter, byte-by-byte.
 
+        Set n=None to extract all packets in the stream of type
+        ``opcode``.
+
+        When ``yield_end`` is True, the contents of the end_code
+        packet, if present, is yielded as well. If set to False, the
+        iterator will still be advanced to the byte after the
+        end_code packet if there are still bytes left in ``b``.
+
         NOTES
         =====
-        The contents or size of the terminating packet is not read
-        for size or content, its mere presence is sufficient to stop
-        the extraction.
-
         CAPT packets have a four-byte header, the first two bytes
         are the opcode and the next two declare the total packet size
         including the header. For details, see the SPECS file in
         captdriver.
         """
         last_byte = next(b)
+        i = 0
+        k = n or -1
         for x in b:
+            if n and i >= k: return
             code = bytes((last_byte, x))
-            if code == end_code:
-                return
-                #raise StopIteration
-            elif code == opcode:
+            termi = code == end_code
+            if code == opcode or termi:
                 vl = next(b)
                 vh = next(b)
                 vlen = WORD(vl, vh)-4
-                for j in range(vlen): yield next(b)
+                if termi and not yield_end:
+                    for j in range(vlen): next(b)
+                    return
+                else:
+                    for j in range(vlen): yield next(b)
+                if termi: return
+                i += 1
+            last_byte = x
 
     def extract_raster_packets(self, b):
         """
