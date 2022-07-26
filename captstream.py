@@ -137,21 +137,6 @@ class CAPTStream:
             self._config = self.CONFIG[version]
         return self._config['version']
 
-    def _raster_dims_from_file(self, fh, pg):
-        """
-        Read raster dimensions from page ``pg`` of the CAPT Job
-        file opened by file handle ``fh``.
-        """
-        off = self.offsets[pg-1][1] # raster metadata
-        fh.seek(0)
-        fh.seek(off + PACKET_HEADER_SIZE + RASTER_LINE_WIDTH_OFFSET)
-        w_raw = fh.read(2)
-        line_size = WORD(w_raw[0], w_raw[1])
-        fh.seek(off + PACKET_HEADER_SIZE + RASTER_HEIGHT_OFFSET)
-        h_raw = fh.read(2)
-        h = WORD(h_raw[0], h_raw[1])
-        return (line_size, h)
-
     def _packet_first_offsets(self, b, opcodes, bias=0, verify=False):
         """
         Return an iter yielding offsets of CAPT packets of interest
@@ -246,6 +231,20 @@ class CAPTStream:
                 i += 1
             last_byte = x
 
+    def extract_raster_dims(self, b):
+        """
+        Read dimensions from the next raster found in the stream of
+        the byte iter ``b``
+
+        """
+        if not self._config: raise ValueError(self.MSG_NO_CONFIG)
+        rast_iter = self.extract_packets(b, CAPT_RASTER_SETUP, None, n=1)
+        for i in range(RASTER_LINE_WIDTH_OFFSET): next(rast_iter)
+        line_size = WORD(next(rast_iter), next(rast_iter))
+        h = WORD(next(rast_iter), next(rast_iter))
+        # PROTIP: height is right after line size (fortunately)
+        return (line_size, h)
+
     def extract_raster_packets(self, b):
         """
         Extract CAPT packets from byte iter ``b`` that contain raster
@@ -305,10 +304,10 @@ class CAPTStream:
         data = None
         header = None
         fmt_name = None
-        dims = self._raster_dims_from_file(self._fh, pg=page)
         self._fh.seek(0)
-        self._fh.seek(self.offsets[page-1][-1]) # raster offset
+        self._fh.seek(self.offsets[page-1][1]) # raster setup offset
         in_iter = (x for x in self._fh.read())
+        dims = self.extract_raster_dims(in_iter)
         if out_format == 'raw':
             data = bytes(self.extract_raster_packets(in_iter))
             out_fmt = self._config['codec_name']
