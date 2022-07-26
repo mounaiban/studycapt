@@ -109,15 +109,23 @@ class CAPTStream:
         capts = CAPTStream('file.capt') => CAPTStream with all functions
                                            accessing data from a file named
                                            'file.capt'
+
+        Note on Interactive Shell Usage
+        -------------------------------
+        CAPTStream will attempt to read from stdin at creation time when
+        the path is None. When in interactive mode, type the bytes into
+        the console and/or press Enter to continue.
+
         """
         self.path = path
         self.offsets = []  # see get_offsets() for format
         self._config = None
         self._fh = None
-        if path: self._set_config(version=version)
+        self._set_config(version=version)
 
     def __del__(self):
-        if self._fh: self._fh.close() # TODO: is this necessary?
+        if self._fh is not stdin.buffer: self._fh.close()
+        # TODO: is this necessary?
 
     def _set_config(self, version=None):
         """
@@ -133,8 +141,8 @@ class CAPTStream:
             self._fh = stdin.buffer
         else:
             self._fh = open(self.path, mode='rb')
-            version = self.VERSION_LOOKUP[self._fh.read(MAGIC_SIZE)]
-            self._config = self.CONFIG[version]
+        version = self.VERSION_LOOKUP[self._fh.read(MAGIC_SIZE)]
+        self._config = self.CONFIG[version]
         return self._config['version']
 
     def _packet_first_offsets(self, b, opcodes, bias=0, verify=False):
@@ -279,10 +287,12 @@ class CAPTStream:
         if not self._config: raise ValueError(self.MSG_NO_CONFIG)
         return self._config['version']
 
-    def get_page(self, page=1, out_format='raw'):
+    def get_page(self, page=0, out_format='raw'):
         """
         Extract data from a page in the CAPT Job File. To stay in line
         with document processing conventions, the first page is page 1.
+
+        If page is 0, the first page detected will be extracted.
 
         Choices for out_format
         ======================
@@ -291,21 +301,19 @@ class CAPTStream:
         'p4': uncompress to PBM P4 bitmap
 
         """
-        if not self.path: raise ValueError(self.MSG_NO_PATH)
-        if not self.offsets:
-            self._fh.seek(0)
-            in_iter = (x for x in self._fh.read())
-            self.offsets = [x for x in self.get_offsets(in_iter)]
-            # TODO: make layout detection optional; make ``page``
-            # argument optional and simply get the next page if
-            # there is no page specified.
-        if page > len(self.offsets) or page < 1:
-            raise IndexError(self.MSG_INVALID_PAGE)
+        if page:
+            if self.path and not self.offsets:
+                self._fh.seek(0)
+                in_iter = (x for x in self._fh.read())
+                self.offsets = [x for x in self.get_offsets(in_iter)]
+            if page > len(self.offsets) or page < 1:
+                raise IndexError(self.MSG_INVALID_PAGE)
+            else:
+                self._fh.seek(0)
+                self._fh.seek(self.offsets[page-1][1]) # raster setup offset
         data = None
         header = None
         fmt_name = None
-        self._fh.seek(0)
-        self._fh.seek(self.offsets[page-1][1]) # raster setup offset
         in_iter = (x for x in self._fh.read())
         dims = self.extract_raster_dims(in_iter)
         if out_format == 'raw':
@@ -349,7 +357,7 @@ if __name__ == '__main__':
                 'choices': (ACT_INFO, ACT_EXTRACT)
             },
             'capt_file': {
-                'help': "path to job file; standard input is not supported yet"
+                'help': "path to job file; use '-' for standard input"
             },
             '--out_file': {
                 'help': 'path to output file (use standard output if not set)'
@@ -360,7 +368,7 @@ if __name__ == '__main__':
                 'choices': ('raw', 'p4')
             },
             '--page': {
-                'default': 1,
+                'default': 0,
                 'help': 'select page (use first page if not set)',
             },
         }
@@ -377,6 +385,7 @@ if __name__ == '__main__':
         )
     args = parser.parse_args()
     in_path = expanduser(args.capt_file)
+    if in_path == '-': in_path = None
     cs = CAPTStream(in_path)
     if args.action == ACT_EXTRACT:
         with _get_writer(args.out_file) as fh:
