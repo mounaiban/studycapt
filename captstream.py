@@ -8,7 +8,8 @@ and transport format for print data.
 
 """
 # Written by Moses Chong
-# First edition 2022/05/16
+# 0.1 released 2022/05/16
+# 0.4 completed 2022/07/26 (add stdin support)
 #
 # PUBLIC DOMAIN, NO RIGHTS RESERVED
 #
@@ -266,7 +267,7 @@ class CAPTStream:
         op_rast_end = self._config['raster_end_opcode']
         for x in self.extract_packets(b, op_rast_data, op_rast_end):
             yield x
-    
+
     def get_offsets(self, b):
         """
         Return an iter that yields offsets to page data
@@ -281,7 +282,7 @@ class CAPTStream:
         codes = self._config['paging_opcodes']
         for x in self._packet_first_offsets(b, codes):
             yield [x[0]-self._config['page_header_size'], x[0], x[1]]
-        
+
     def version(self):
         """Return CAPT version as an int"""
         if not self._config: raise ValueError(self.MSG_NO_CONFIG)
