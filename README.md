@@ -28,14 +28,18 @@ The dissector currently only dissects packets over USB. CAPT over Ethernet and
 parallel printer/IEEE 1284 ports are currently not supported.
 
 ### [captstream.py](captstream.py) (CAPT Job File and Stream Toolkit)
-A Python module to extract data from CAPT job files or streams that contain or
-transport print data for/to print devices.
+A Python module to extract data from CAPT job files or streams that
+contain or transport print data for/to print devices.
 
-This module may be run as a command, like in this Unix-like shell example:
+This module may be run as a command, like in this Unix-like shell
+example:
 
 ```sh
 ./captstream.py extract --page=1 --out_file=output_file.pbm input_file.capt
 ```
+
+If on Microsoft Windows, try ``python captstream.py extract --page=1 --out_file=output_file.pbm input_file.capt``
+in cmd.exe.
 
 To use standard output, just skip `--out_file`:
 
@@ -44,8 +48,26 @@ To use standard output, just skip `--out_file`:
 ./captstream.py extract --page=1 input_file.capt > output_dest
 ```
 
-If on Microsoft Windows, try ``python captstream.py extract --page=1 --out_file=output_file.pbm input_file.capt``
-in cmd.exe.
+To use standard input, use a single hypen ``-`` as the input file.
+For now, only the first page detected from standard input will be
+processed.
+
+The following example contains a complete pipeline from Ghostscript
+to ``captfilter`` to ``captstream.py``:
+
+```sh
+# The following example extracts a single page from a PDF, prepares
+# a CAPT 1.x raster then decompresses the raster. If the command
+# freezes, try pressing CTRL-D once. Multiple attempts at this command
+# may be required for some pages on some systems.
+PAGE=1; \
+gs -r600 -dSAFER -dNOPAUSE -dNOPROMPT -dFIRSTPAGE=$PAGE -dLASTPAGE=$PAGE -sDEVICE=pgmraw -sOutputFile=- example.pdf |\
+captfilter --CNTblModel=0 --Resolution=600 |\
+./captstream.py extract --page=1 --out_format=p4 - > out.pbm
+```
+
+Reduce the 600 in ``-r600`` to a smaller number, like 150, as a quick
+and dirty way to reduce oversize pages.
 
 ### [in2pbmp4.sh](in2pbmp4.sh) (Input to PBM P4 Image Script)
 A script originally created to help visualise arbitrary data as a PBM P4
@@ -65,6 +87,9 @@ dd if=$INPUT_FILE bs=$((200 * 200 / 8)) count=1 >> $OUTPUT_FILE
 ```
 
 Try `/dev/urandom` as an input file for a start!
+
+If you are still interested in how to use this script, please checkout
+versions ``58c6e3c`` of the Studycapt source tree or earlier.
 
 ### [sample\_balls.py](sample_balls.py) (Performance Test Page Generator)
 A Python script to generate test pages of varying complexity in SVG format, in
@@ -114,8 +139,10 @@ on the original captdriver repo for details.
 ```python
 from scoa import SCoADecoder
 
-# Create a decoder object for a 596-byte wide bitmap
+# Create decoder object for a 596-byte wide bitmap & decode test file
 decoder = SCoADecoder(596)
+with open('captfile.capt', mode='rb') as cf:
+    image_bytes = bytes(decoder.decode(x for x in cf.read()))
 ```
 
 Have fun!
