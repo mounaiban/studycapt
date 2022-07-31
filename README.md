@@ -48,26 +48,33 @@ To use standard output, just skip `--out_file`:
 ./captstream.py extract --page=1 input_file.capt > output_dest
 ```
 
-To use standard input, use a single hypen ``-`` as the input file.
-For now, only the first page detected from standard input will be
-processed.
+To use standard input, use a single hypen ``-`` as the input
+file path. The ``--num_pages`` option sets the number of pages
+to process.
 
 The following example contains a complete pipeline from Ghostscript
 to ``captfilter`` to ``captstream.py``:
 
 ```sh
-# The following example extracts a single page from a PDF, prepares
-# a CAPT 1.x raster then decompresses the raster. If the command
-# freezes, try pressing CTRL-D once. Multiple attempts at this command
-# may be required for some pages on some systems.
-PAGE=1; \
-gs -r600 -dSAFER -dNOPAUSE -dNOPROMPT -dFIRSTPAGE=$PAGE -dLASTPAGE=$PAGE -sDEVICE=pgmraw -sOutputFile=- example.pdf |\
+# Extract pages 1 to 10 from a PDF, prepare a CAPT 1.x raster then
+# decompresse the raster. Multiple PBM files will be written, each
+# containing a single page.
+# Page numbers will be inserted before the last ASCII full stop '.'
+# (U+002E) in the output path specified by --out_file, or as a
+# suffix if there is no full stop.
+# The command can take a long time to complete, a process monitor
+# can be improvised as a status monitor. Check the CPU and RAM
+# usage for gs, captfilter and python.
+# If the command freezes, try pressing CTRL-D.
+# Multiple attempts at this command may be required for some pages
+# on some systems.
+gs -r600 -dSAFER -dNOPAUSE -dNOPROMPT -sDEVICE=pgmraw -sOutputFile=- example.pdf |\
 captfilter --CNTblModel=0 --Resolution=600 |\
-./captstream.py extract --page=1 --out_format=p4 - > out.pbm
+./captstream.py extract --num_pages=10 --out_format=p4 --out_file=example.pbm -
 ```
 
-Reduce the 600 in ``-r600`` to a smaller number, like 150, as a quick
-and dirty way to reduce oversize pages.
+>PROTIP: Reduce the 600 in ``-r600`` to a smaller number, like 150,
+as a quick and dirty way to reduce oversize pages.
 
 ### [in2pbmp4.sh](in2pbmp4.sh) (Input to PBM P4 Image Script)
 A script originally created to help visualise arbitrary data as a PBM P4
