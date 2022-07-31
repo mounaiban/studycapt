@@ -71,6 +71,7 @@ class CAPTStream:
     # PAGE = [PAGE_HEADER [,HISCOA_PARAMS], RASTER_HEADER, RASTER, FOOTER]
 
     MSG_NO_DECODER = 'SCoA Decoder module not found or not enabled'
+    MSG_NO_PAGE = 'cannot select page with stdin or other non-seekable streams'
     MSG_NO_PATH = 'this feature is only for file streams'
     MSG_NO_CONFIG = 'please set format configuration first; see _set_config()'
     MSG_INVALID_PAGE = 'invalid page number'
@@ -122,6 +123,7 @@ class CAPTStream:
         self.offsets = []  # see get_offsets() for format
         self._config = None
         self._fh = None
+        self._fh_iter = None
         self._set_config(version=version)
 
     def __del__(self):
@@ -138,12 +140,13 @@ class CAPTStream:
         inferred from identifiers in the file.
         """
         if not self.path:
-            if version: self._config = self.CONFIG[version]
             self._fh = stdin.buffer
         else:
             self._fh = open(self.path, mode='rb')
-        version = self.VERSION_LOOKUP[self._fh.read(MAGIC_SIZE)]
-        self._config = self.CONFIG[version]
+        if version: self._config = self.CONFIG[version]
+        else:
+            v = self.VERSION_LOOKUP[self._fh.read(MAGIC_SIZE)]
+            self._config = self.CONFIG[v]
         return self._config['version']
 
     def _packet_first_offsets(self, b, opcodes, bias=0, verify=False):
@@ -268,6 +271,44 @@ class CAPTStream:
         for x in self.extract_packets(b, op_rast_data, op_rast_end):
             yield x
 
+    def extract_next_page(self, b, out_format='raw'):
+        """
+        Extract the first page detected in the byte iter b.
+        Return the extracted page as a ready-to-archive byte array
+        containing headers and metadata.
+
+        Choices for out_format
+        ======================
+        'raw': extract data only, do not uncompress
+
+        'p4': uncompress to PBM P4 bitmap
+
+        Note
+        ====
+        Only CAPT 1.x files are properly supported at the moment
+
+        """
+        dims = self.extract_raster_dims(b)
+        header = None
+        raw_iter = self.extract_raster_packets(b)
+        if out_format == 'raw':
+            data = bytes(raw_iter)
+            out_fmt = self._config['codec_name']
+            header = HEADER_FMT.format(
+                fmt=out_fmt,
+                w=dims[0]*8,
+                h=dims[1],
+                size=len(data)
+            )
+        elif out_format == 'p4':
+            if not SCoADecoder: ValueError(self.MSG_NO_DECODER)
+            decoder = SCoADecoder(line_size=dims[0])
+            data = bytes(decoder.decode(raw_iter))
+            header = P4_HEADER_FMT.format(w=dims[0]*8, h=dims[1])
+        else:
+            raise ValueError(self.MSG_UNKNOWN_FORMAT)
+        return b''.join((bytes(header, encoding='ascii'), data))
+
     def get_offsets(self, b):
         """
         Return an iter that yields offsets to page data
@@ -295,14 +336,12 @@ class CAPTStream:
 
         If page is 0, the first page detected will be extracted.
 
-        Choices for out_format
-        ======================
-        'raw': extract data only, do not uncompress
-
-        'p4': uncompress to PBM P4 bitmap
+        For a list of supported output formats, see extract_next_page().
 
         """
         if page:
+            if not self._fh.seekable():
+                raise IndexError(self.MSG_NO_PAGE)
             if self.path and not self.offsets:
                 self._fh.seek(0)
                 in_iter = (x for x in self._fh.read())
@@ -312,29 +351,9 @@ class CAPTStream:
             else:
                 self._fh.seek(0)
                 self._fh.seek(self.offsets[page-1][1]) # raster setup offset
-        data = None
-        header = None
-        fmt_name = None
-        in_iter = (x for x in self._fh.read())
-        dims = self.extract_raster_dims(in_iter)
-        if out_format == 'raw':
-            data = bytes(self.extract_raster_packets(in_iter))
-            out_fmt = self._config['codec_name']
-            header = HEADER_FMT.format(
-                fmt=out_fmt,
-                w=dims[0]*8,
-                h=dims[1],
-                size=len(data)
-            )
-        elif out_format == 'p4':
-            if not SCoADecoder: ValueError(self.MSG_NO_DECODER)
-            decoder = SCoADecoder(line_size=dims[0])
-            raw_iter = self.extract_raster_packets(in_iter)
-            data = bytes(decoder.decode(raw_iter))
-            header = P4_HEADER_FMT.format(w=dims[0]*8, h=dims[1])
-        else:
-            raise ValueError(self.MSG_UNKNOWN_FORMAT)
-        return b''.join((bytes(header, encoding='ascii'), data))
+                self._fh_iter = (x for x in self._fh.read())
+        if not self._fh_iter: self._fh_iter = (x for x in self._fh.read())
+        return self.extract_next_page(self._fh_iter, out_format=out_format)
 
 def WORD(lo, hi):
     """Get integer from 16-bit little-endian word"""

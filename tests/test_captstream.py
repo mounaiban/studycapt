@@ -106,7 +106,7 @@ class CAPTStreamTests(TestCase):
             'expected': b'\x9a\x9a\x9a\x9a\x9b\x9b\x9b\x9b',
         },
     }
-    cfi = captstream.CAPTStream(None)
+    cfi = captstream.CAPTStream(None, version=1)
     def test_extract_packets(self):
         for k in self.EXTRACT_PACKET_CASES.keys():
             with self.subTest(test=k):
@@ -175,7 +175,7 @@ class CAPTStreamTests(TestCase):
             'expected': [[0, 8, 16],],
         },
     }
-    cfi = captstream.CAPTStream(None)
+    cfi = captstream.CAPTStream(None, version=1)
 
     def test_packet_first_offsets(self):
         for k in self.PFO_CASES.keys():
