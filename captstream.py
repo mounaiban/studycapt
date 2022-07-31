@@ -391,6 +391,10 @@ if __name__ == '__main__':
                 'default': 0,
                 'help': 'select page (use first page if not set)',
             },
+            '--num_pages': {
+                'default': 1,
+                'help': 'pages from & including selected page to process'
+            }
         }
     })
     parser = ArgumentParser(description=parser_spec['desc'])
@@ -408,8 +412,30 @@ if __name__ == '__main__':
     if in_path == '-': in_path = None
     cs = CAPTStream(in_path)
     if args.action == ACT_EXTRACT:
-        with _get_writer(args.out_file) as fh:
-            fh.write(cs.get_page(int(args.page), args.out_format))
+        n = int(args.num_pages)
+        p = int(args.page)
+        try:
+            for i in range(p, p+n):
+                ofname = args.out_file
+                if ofname and n > 1:
+                    # When extracting multiple pages, number the
+                    # filenames like:
+                    # file.000.suf (with dotted suffix/extension), or
+                    # .000.suf (why?), or
+                    # file.000 (no extension)
+                    if '.' in ofname:
+                        ofname_split = ofname.rsplit('.')
+                        ofname_split.insert(-1, '.')
+                        ofname_split.insert(-1, "{:05}".format(i))
+                        ofname_split.insert(-1, '.')
+                        ofname = ''.join(ofname_split)
+                    else:
+                        ofname = ''.join((ofname, ".{:05}".format(i)))
+                with _get_writer(ofname) as fh:
+                    fh.write(cs.get_page(p, args.out_format))
+                p = 0 # just get following pages after first page
+        except StopIteration:
+            print("Last page ({}) reached".format(i-1))
     elif args.action == ACT_INFO:
         print("capt_version={}".format(cs._config['version']))
         print("capt_codec={}".format(cs._config['codec_name']))
