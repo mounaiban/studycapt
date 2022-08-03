@@ -414,6 +414,7 @@ if __name__ == '__main__':
     if args.action == ACT_EXTRACT:
         n = int(args.num_pages)
         p = int(args.page)
+        x = p or 1
         try:
             for i in range(p, p+n):
                 ofname = args.out_file
@@ -426,14 +427,17 @@ if __name__ == '__main__':
                     if '.' in ofname:
                         ofname_split = ofname.rsplit('.')
                         ofname_split.insert(-1, '.')
-                        ofname_split.insert(-1, "{:05}".format(i))
+                        ofname_split.insert(-1, "{:04}".format(x))
                         ofname_split.insert(-1, '.')
                         ofname = ''.join(ofname_split)
                     else:
-                        ofname = ''.join((ofname, ".{:05}".format(i)))
+                        ofname = ''.join((ofname, ".{:04}".format(x)))
                 with _get_writer(ofname) as fh:
                     fh.write(cs.get_page(p, args.out_format))
+                x += 1
                 p = 0 # just get following pages after first page
+                      # PROTIP: this does not affect the range iterator
+                      # that has already been initialised.
         except StopIteration:
             print("Last page ({}) reached".format(i-1))
     elif args.action == ACT_INFO:
