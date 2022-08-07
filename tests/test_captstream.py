@@ -17,6 +17,7 @@ CAPT Job File and Stream Toolkit (captstream.py) Unit Tests
 
 from unittest import TestCase
 import captstream
+import os.path
 
 class CAPTStreamTests(TestCase):
 
@@ -192,3 +193,56 @@ class CAPTStreamTests(TestCase):
         
     def test_malformed_input(self):
         raise NotImplementedError('TODO: write malformed input tests')
+
+class CommandLineTests(TestCase):
+
+    # _auto_number_filename() test
+    #
+    sep = os.path.sep
+    xsp = os.path.extsep
+    AUTO_NUMBER_FILENAME_CASES = {
+        'begin_with_extsep':{
+            'args': {
+                'path': '{0}dir{0}{1}file'.format(sep, xsp),
+                'n': 9,
+            },
+            'expected': '{0}dir{0}{1}0009{1}file'.format(sep, xsp),
+        },
+        'single_extension': {
+            'args': {
+                'path': '{0}dir{0}file{1}ext'.format(sep, xsp),
+                'n': 9,
+            },
+            'expected': '{0}dir{0}file{1}0009{1}ext'.format(sep, xsp)
+        },
+        'multi_extension': {
+            'args': {
+                'path': '{0}dir{0}file{1}suf{1}ext'.format(sep, xsp),
+                'n': 9,
+            },
+            'expected': '{0}dir{0}file{1}suf{1}0009{1}ext'.format(sep, xsp),
+        },
+        'multi_extension_dotted_dir': {
+            'args': {
+                'path': '{0}dir{1}ext{0}file{1}suf{1}ext'.format(sep, xsp),
+                'n': 9,
+            },
+            'expected': '{0}dir{1}ext{0}file{1}suf{1}0009{1}ext'.format(sep,xsp)
+        },
+        'rel_begin_with_extsep':{
+            'args': {
+                'path': '{1}file'.format(sep, xsp),
+                'n': 9,
+            },
+            'expected': '{1}0009{1}file'.format(sep, xsp),
+        },
+    }
+
+    def test_auto_number_filename(self):
+        for k in self.AUTO_NUMBER_FILENAME_CASES.keys():
+            with self.subTest(test=k):
+                tcase = self.AUTO_NUMBER_FILENAME_CASES[k]
+                a = tcase.get('args', {})
+                sample = captstream._auto_number_filename(**a)
+                expected = tcase['expected']
+                self.assertEqual(sample, expected)

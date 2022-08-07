@@ -31,9 +31,9 @@ and transport format for print data.
 #
 
 import pdb
+import os.path
 from argparse import ArgumentParser
 from collections import OrderedDict
-from os.path import expanduser
 from sys import stdin, stdout
 try:
     from scoa import SCoADecoder
@@ -368,6 +368,20 @@ def _get_writer(path):
     if path: return open(path, mode='xb')
     else: return stdout.buffer
 
+def _auto_number_filename(path, n):
+    b = os.path.basename(path)
+    if '.' not in b:
+        return "{}.{:04}".format(path, n)
+    else:
+        bsplit = b.rsplit(os.path.extsep)
+        bsplit.insert(-1, "{:04}".format(n))
+        f = '.'.join(bsplit)
+        if not os.path.dirname(path): return f
+        else:
+            return "{}{}{}".format(
+                os.path.dirname(path), os.path.sep, '.'.join(bsplit)
+            )
+
 if __name__ == '__main__':
     parser_spec = OrderedDict({
         'desc': 'View information and extract pages from CAPT job files',
@@ -408,7 +422,7 @@ if __name__ == '__main__':
             help=sp.get('help')
         )
     args = parser.parse_args()
-    in_path = expanduser(args.capt_file)
+    in_path = os.path.expanduser(args.capt_file)
     if in_path == '-': in_path = None
     cs = CAPTStream(in_path)
     if args.action == ACT_EXTRACT:
@@ -417,23 +431,12 @@ if __name__ == '__main__':
         x = p or 1
         try:
             for i in range(p, p+n):
-                ofname = args.out_file
-                if ofname and n > 1:
-                    # When extracting multiple pages, number the
-                    # filenames like:
-                    # file.000.suf (with dotted suffix/extension), or
-                    # .000.suf (why?), or
-                    # file.000 (no extension)
-                    if '.' in ofname:
-                        ofname_split = ofname.rsplit('.')
-                        ofname_split.insert(-1, '.')
-                        ofname_split.insert(-1, "{:04}".format(x))
-                        ofname_split.insert(-1, '.')
-                        ofname = ''.join(ofname_split)
-                    else:
-                        ofname = ''.join((ofname, ".{:04}".format(x)))
-                with _get_writer(ofname) as fh:
-                    fh.write(cs.get_page(p, args.out_format))
+                opath = args.out_file
+                if opath and (n > 1):
+                    opath = _auto_number_filename(opath, i)
+                page = cs.get_page(p, args.out_format)
+                with _get_writer(opath) as fh:
+                    fh.write(page)
                 x += 1
                 p = 0 # just get following pages after first page
                       # PROTIP: this does not affect the range iterator
