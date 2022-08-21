@@ -62,3 +62,8 @@ def BCD_le(lo, hi):
     if a > 9 or b > 9 or c > 9 or d > 9: return WORD(lo, hi)
     else: return a * 1000 + b * 100 + c * 10 + d * 1
 
+def BCD_le_test():
+    assert(BCD_le(0x02, 0x00) == 2)
+    assert(BCD_le(0x99, 0x99) == 9999)
+    assert(BCD_le(0x02, 0xEF) == 0xEF02)
+    assert(BCD_le(0xEF, 0x02) == 0x02EF)
