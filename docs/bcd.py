@@ -47,8 +47,8 @@ def BCD_le_original(lo, hi):
     c = (lo >> 8) & 0x0F # "
     d = (lo >> 0) & 0x0F
     if a > 9 or b > 9 or c > 9 or d > 9: return WORD(lo, hi)
-    # passthru for non-BCD numbers
-    return a * 1000 + b * 100 + c * 10 + d * 1;s
+    else: return a * 1000 + b * 100 + c * 10 + d * 1
+        # passthru for non-BCD numbers
 
 def BCD_le(lo, hi):
     # Fixed BCD()
@@ -60,5 +60,5 @@ def BCD_le(lo, hi):
     c = (lo >> 4) & 0x0F
     d = lo & 0x0F
     if a > 9 or b > 9 or c > 9 or d > 9: return WORD(lo, hi)
-    return a * 1000 + b * 100 + c * 10 + d * 1;s
+    else: return a * 1000 + b * 100 + c * 10 + d * 1
 
