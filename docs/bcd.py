@@ -2,7 +2,7 @@
 #
 # PUBLIC DOMAIN, NO RIGHTS RESERVED
 # Foreword by Moses Chong
-# Special thanks to Oleg Sazonov
+# Special thanks to Oleg Sazonov (and his Dad)
 #
 # To the extent possible under law, the author(s) have dedicated all
 # copyright and related and neighboring rights to this software
@@ -31,7 +31,7 @@
 # To access these functions, just `python -im bcd` from a shell and go!
 #
 
-ERR_MAX = 'lo and hi must both be less than 255'
+ERR_MAX = 'lo and hi must both be 255 (0xFF) or less'
 ERR_MIN = 'lo and hi must both be zero or positive'
 
 WORD = lambda x, y: (y & 0xFF) << 8 | x & 0xFF # read 16-bit little-endian int
