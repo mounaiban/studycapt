@@ -398,7 +398,7 @@ d0a0_proto.fields = {
 	d0a0_fuser_mode,
 }
 function d0a0_proto.dissector(buffer, pinfo, tree)
-	tree:add(d0a0_model_id, buffer(2,2))
+	tree:add_le(d0a0_model_id, buffer(2,2))
 	tree:add(d0a0_paper_size_id, buffer(4,1))
 	tree:add(d0a0_toner_density_a, buffer(8,1))
 	tree:add(d0a0_toner_density_b, buffer(9,1))
