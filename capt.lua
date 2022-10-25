@@ -519,6 +519,7 @@ dt_usb_product:add(0x04a926da, capt_proto) -- LBP3010/3018/3050
 dt_usb_product:add(0x04a926db, capt_proto) -- LBP3100/3108/3150
 dt_usb_product:add(0x04a926b9, capt_proto) -- LBP3310
 dt_usb_product:add(0x04a9271a, capt_proto) -- LBP6000/LBP6018
+dt_usb_product:add(0x04a92771, capt_proto) -- LBP6020
 --dt_usb_product:add(YOUR_DEVICE_NUMBER, capt_proto)
 
 -- PROTIP: If the number for your device is missing from above, you may
