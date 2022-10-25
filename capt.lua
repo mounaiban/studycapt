@@ -84,6 +84,7 @@ opcodes_prn = {
 	[0xE0A3] = "CAPT_START_1",
 	[0xE0A4] = "CAPT_START_3", -- TODO: should this be re-ordered/renamed?
 	[0xE0A5] = "CAPT_UPLOAD_2",
+	[0xE0A6] = "CAPT_LBP3000_SETUP_0",
 	[0xE0A7] = "CAPT_FIRE", -- start actual printing process for page?
 	[0xE0A9] = "CAPT_JOB_END",
 	[0xE0BA] = "CAPT_LBP6000_SETUP_0",
