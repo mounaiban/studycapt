@@ -86,6 +86,7 @@ opcodes_prn = {
 	[0xE0A5] = "CAPT_UPLOAD_2",
 	[0xE0A7] = "CAPT_FIRE", -- start actual printing process for page?
 	[0xE0A9] = "CAPT_JOB_END",
+	[0xE0BA] = "CAPT_LBP6000_SETUP_0",
 	[0xE1A1] = "CAPT_JOB_SETUP",
 	[0xE1A2] = "CAPT_GPIO",
 }
@@ -516,6 +517,7 @@ dt_usb_product:add(0x04a9266a, capt_proto) -- LBP3000
 dt_usb_product:add(0x04a926da, capt_proto) -- LBP3010/3018/3050
 dt_usb_product:add(0x04a926db, capt_proto) -- LBP3100/3108/3150
 dt_usb_product:add(0x04a926b9, capt_proto) -- LBP3310
+dt_usb_product:add(0x04a9271a, capt_proto) -- LBP6000/LBP6018
 --dt_usb_product:add(YOUR_DEVICE_NUMBER, capt_proto)
 
 -- PROTIP: If the number for your device is missing from above, you may
