@@ -237,7 +237,7 @@ function run_sub_dissector(buffer, pinfo, tree)
 		if pinfo.dst_port ~= HOST_PORT then
 			pinfo.cols.info:append(" (send)")
 		else
-			pinfo.cols.info:append(" (rx)")
+			pinfo.cols.info:append(string.format(" (rx 0x%x/%d B)", size, size))
 		end
 	end
 
