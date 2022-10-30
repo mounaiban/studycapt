@@ -171,7 +171,7 @@ function capt_proto.dissector(buffer, pinfo, tree)
 					-- no last known header: assume unknown opcode
 					pinfo.cols.protocol:set("CAPT")
 					pinfo.cols.info:set(string.format("Unknown opcode %x", opcode))
-					t_captcmd = t_pckt:add(capt_comment, string.format("???"))
+					t_captcmd = t_pckt:add(capt_comment, "???")
 					return
 				end
 			end
