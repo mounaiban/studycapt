@@ -91,6 +91,10 @@ opcodes_prn = {
 	[0xE1A1] = "CAPT_JOB_SETUP",
 	[0xE1A2] = "CAPT_GPIO",
 }
+pattern_non_capt = {
+    [0x0000] = "NON_CAPT_PACKET",
+    [0x4600] = "IEEE_1284_DEVICE_ID",
+}
 -- init combined opcodes table (inefficient but acceptable due to small size)
 opcodes = {}
 for k, v in pairs(opcodes_stat) do opcodes[k] = v end
@@ -158,6 +162,10 @@ function capt_proto.dissector(buffer, pinfo, tree)
 					response_pairs[pinfo.number] = last_spd.number
 					response_pairs[last_spd.number] = pinfo.number
 					last_spd = {} -- reset to prevent spurious pairings
+					return
+				elseif pattern_non_capt[opcode] then
+					pinfo.cols.info:set(pattern_non_capt[opcode])
+					t_captcmd = t_pckt:add(capt_comment, "This non-CAPT packet could not be skipped due to dissector limitations")
 					return
 				else
 					-- no last known header: assume unknown opcode
