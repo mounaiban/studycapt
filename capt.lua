@@ -209,7 +209,9 @@ function capt_proto.dissector(buffer, pinfo, tree)
 					last_spd.expected_body_size = size - HEADER_SIZE
 					t_pckt:add(capt_comment, "See next Response Body from this source to host for remaining data")
 				else
+					pinfo.cols.protocol = "CAPT Rx Header"
 					t_pckt:add(capt_body_pn, response_pairs[pn])
+					return
 				end
 			end
 		end
