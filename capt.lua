@@ -57,17 +57,23 @@ local response_pairs = {} -- body<->header: frame number lookup
 capt_proto = Proto("capt", "Canon Advanced Printing Technology")
 opcodes_stat = {
     [0xA0A1] = "CAPT_CHKJOBSTAT",
+    [0xA0A4] = "CAPT_A0_A4", -- as seen on LBP5200
+    [0xA0A6] = "CAPT_A0_A6", --
     [0xA0A8] = "CAPT_XSTATUS",
     [0xA1A0] = "CAPT_IEEE_IDENT",
     [0xA1A1] = "CAPT_IDENT",
+    [0xA3A3] = "CAPT_PAGE_COUNT", -- as seen on LBP5200
     [0xE0A0] = "CAPT_CHKSTATUS",
 }
 opcodes_prn = {
-	[0xA0A0] = "CAPT_NOP", -- classified as a control command to do nothing
+	[0xA0A0] = "CAPT_NOP", -- not quite a NOP on LBP5200 (CAPT 2.0)
 	[0xA2A0] = "CAPT_JOB_BEGIN",
 	[0xA3A2] = "CAPT_START_0",
 	[0xC0A0] = "CAPT_PRINT_DATA",
 	[0xC0A4] = "CAPT_PRINT_DATA_END",
+	[0xC0A5] = "CAPT_C0_A5", --
+	[0xC0A6] = "CAPT_C0_A6", -- as seen on LBP5200
+	[0xC0A7] = "CAPT_C0_A7", --
 	[0xD0A0] = "CAPT_SET_PARM_PAGE",
 	[0xD0A1] = "CAPT_SET_PARM_1",
 	[0xD0A2] = "CAPT_SET_PARM_2",
@@ -87,6 +93,7 @@ opcodes_prn = {
 	[0xE0A6] = "CAPT_LBP3000_SETUP_0",
 	[0xE0A7] = "CAPT_FIRE", -- start actual printing process for page?
 	[0xE0A9] = "CAPT_JOB_END",
+	[0xE0B9] = "CAPT_E0_B9", -- as seen on LBP5200
 	[0xE0BA] = "CAPT_LBP6000_SETUP_0",
 	[0xE1A1] = "CAPT_JOB_SETUP",
 	[0xE1A2] = "CAPT_GPIO",
@@ -528,6 +535,7 @@ dt_usb_product:add(0x04a9266a, capt_proto) -- LBP3000
 dt_usb_product:add(0x04a926da, capt_proto) -- LBP3010/3018/3050
 dt_usb_product:add(0x04a926db, capt_proto) -- LBP3100/3108/3150
 dt_usb_product:add(0x04a926b9, capt_proto) -- LBP3310
+dt_usb_product:add(0x04a9266e, capt_proto) -- LBP5200
 dt_usb_product:add(0x04a9271a, capt_proto) -- LBP6000/LBP6018
 dt_usb_product:add(0x04a92771, capt_proto) -- LBP6020
 --dt_usb_product:add(YOUR_DEVICE_NUMBER, capt_proto)
