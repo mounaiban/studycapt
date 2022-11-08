@@ -349,8 +349,8 @@ function a1a1_proto.dissector(buffer, pinfo, tree) do
 	tree:add_le(a1a1_mag_info_c, buffer(4,2))
 	tree:add_le(a1a1_buffer_size, buffer(6,2))
 	tree:add_le(a1a1_buffers, buffer(8,2))
+	if size <= 16 then return end
 	tree:add_le(a1a1_throughput, buffer(16,2))
-	if size <= 20 then return end
 	tree:add_le(a1a1_w_max, buffer(20,2))
 	tree:add_le(a1a1_w_max_duplex, buffer(22,2))
 	tree:add_le(a1a1_h_max, buffer(24,2))
