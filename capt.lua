@@ -60,6 +60,7 @@ opcodes_stat = {
     [0xA0A4] = "CAPT_A0_A4", -- as seen on LBP5200
     [0xA0A6] = "CAPT_A0_A6", --
     [0xA0A8] = "CAPT_XSTATUS",
+    [0xA0A9] = "CAPT_A0_A9", -- as seen on LBP7200
     [0xA1A0] = "CAPT_IEEE_IDENT",
     [0xA1A1] = "CAPT_IDENT",
     [0xA3A3] = "CAPT_PAGE_COUNT", -- as seen on LBP5200
@@ -531,6 +532,7 @@ dt_usb_product:add(0x04a926b9, capt_proto) -- LBP3310
 dt_usb_product:add(0x04a9266e, capt_proto) -- LBP5200
 dt_usb_product:add(0x04a9271a, capt_proto) -- LBP6000/LBP6018
 dt_usb_product:add(0x04a92771, capt_proto) -- LBP6020
+dt_usb_product:add(0x04a926f1, capt_proto) -- LBP7200
 --dt_usb_product:add(YOUR_DEVICE_NUMBER, capt_proto)
 
 -- PROTIP: If the number for your device is missing from above, you may
