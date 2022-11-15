@@ -316,7 +316,7 @@ local a1a1_npr = ProtoField.uint8(prefix .. ".npr", "Right Non-printable Margin 
 local a1a1_rx = ProtoField.uint16(prefix .. ".rx", "X Resolution (dpi)(?)")
 local a1a1_ry = ProtoField.uint16(prefix .. ".ry", "Y Resolution (dpi)(?)")
 local a1a1_capt_ver = ProtoField.uint16(prefix .. ".capt_ver", "CAPT Version")
-local a1a1_capt3_info = ProtoField.string(prefix .. ".magic_capt_3_info", "CAPT 3.0 Information(?)")
+local a1a1_capt3_info = ProtoField.new("CAPT 3.0 Information(?)", prefix .. ".magic_capt_3_info", ftypes.BYTES)
 a1a1_proto = Proto(prefix, "CAPT: Printer Information")
 a1a1_proto.fields = {
 	a1a1_mag_info_a,
@@ -340,7 +340,7 @@ a1a1_proto.fields = {
 	a1a1_rx,
 	a1a1_ry,
 	a1a1_capt_ver,
-	a1a1_mag_capt3_info,
+	a1a1_capt3_info,
 }
 function a1a1_proto.dissector(buffer, pinfo, tree) do
 	local size = buffer:len()
@@ -366,8 +366,8 @@ function a1a1_proto.dissector(buffer, pinfo, tree) do
 	tree:add_le(a1a1_rx, buffer(44,2))
 	tree:add_le(a1a1_ry, buffer(46,2))
 	tree:add_le(a1a1_capt_ver, buffer(48,1))
-	if size <= 56 then return end
-	tree:add(a1a1_mag_capt3_info, buffer(55,63))
+	if size <= 52 then return end
+	tree:add(a1a1_capt3_info, buffer(52,8))
 end end
 
 -- 0xD0A0: CAPT_SET_PARM_PAGE
