@@ -98,10 +98,6 @@ opcodes_prn = {
 	[0xE1A1] = "CAPT_JOB_SETUP",
 	[0xE1A2] = "CAPT_GPIO",
 }
-pattern_non_capt = {
-    [0x0000] = "NON_CAPT_PACKET",
-    [0x4600] = "IEEE_1284_DEVICE_ID",
-}
 -- init combined opcodes table (inefficient but acceptable due to small size)
 opcodes = {}
 for k, v in pairs(opcodes_stat) do opcodes[k] = v end
@@ -111,6 +107,7 @@ local capt_comment = ProtoField.string("capt.comment", "Comment")
 local capt_header_pn = ProtoField.framenum("capt.header_frame", "Response Header in Frame")
 local capt_body_pn = ProtoField.framenum("capt.body_frame", "Response Body in Frame")
 local capt_cmd = ProtoField.uint16("capt.cmd","Command", base.HEX, opcodes)
+local dump = ProtoField.new("Dump", "capt.packet_dump", ftypes.BYTES)
 local pkt_size = ProtoField.uint16("capt.packet_size", "Packet Size", base.DEC)
 local params = ProtoField.new("Parameters", "capt.param_dump", ftypes.BYTES)
 	-- PROTIP: ProtoField.new puts name argument first
@@ -119,6 +116,7 @@ capt_proto.fields = {
 	capt_header_pn,
 	capt_body_pn,
 	capt_cmd,
+	dump,
 	pkt_size,
 	params,
 }
@@ -135,7 +133,7 @@ end
 function capt_proto.dissector(buffer, pinfo, tree)
 	local buffer2 = buffer
 	local buflen = buffer2:len()
-    local t_pckt = tree:add(capt_proto, buffer2()) --packet details tree heading
+	local t_pckt = tree
 	local t_captcmd
 	local br_opcode
 	local br_size
@@ -144,9 +142,7 @@ function capt_proto.dissector(buffer, pinfo, tree)
 	local optype = TYPE_NOT_OPCODE
 	local size
 
-	t_pckt:add(capt_comment, REMINDER_CLEAR_JOURNAL)
-	-- classify...
-	-- detect opcode
+	tree:add(capt_comment, REMINDER_CLEAR_JOURNAL)
 	if buflen >= 2 then
 		br_opcode = buffer2(0, 2)
 		opcode = br_opcode:le_uint()
@@ -170,15 +166,10 @@ function capt_proto.dissector(buffer, pinfo, tree)
 					response_pairs[last_spd.number] = pinfo.number
 					last_spd = {} -- reset to prevent spurious pairings
 					return
-				elseif pattern_non_capt[opcode] then
-					pinfo.cols.info:set(pattern_non_capt[opcode])
-					t_captcmd = t_pckt:add(capt_comment, "This non-CAPT packet could not be skipped due to dissector limitations")
-					return
 				else
 					-- no last known header: assume unknown opcode
-					pinfo.cols.protocol:set("CAPT")
-					pinfo.cols.info:set(string.format("Unknown opcode %x", opcode))
-					t_captcmd = t_pckt:add(capt_comment, "???")
+					pinfo.cols.info:set(string.format("Non-CAPT packet or unknown opcode 0x%x", opcode))
+					tree:add(dump, buffer2())
 					return
 				end
 			end
@@ -193,6 +184,7 @@ function capt_proto.dissector(buffer, pinfo, tree)
 				buffer2 = rabytes:tvb('Response')
 				buflen = buffer2:len()
 				br_opcode = buffer2(0, 2)
+				t_pckt = tree:add(capt_proto, buffer2())
 				t_pckt:add(capt_header_pn, hn)
 				t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
 			end
@@ -202,6 +194,7 @@ function capt_proto.dissector(buffer, pinfo, tree)
 		br_size = buffer2(2, 2)
 		size = br_size:le_uint()
 		if bit32.btest(optype, TYPE_IS_OPCODE) then
+			t_pckt = tree:add(capt_proto, buffer2())
 			t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
 			if size > buflen then
 				-- headers of segmented packets
