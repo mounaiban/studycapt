@@ -22,8 +22,7 @@
 
 -- SPDX-License-Identifier: GPL-3.0-or-later
 
--- Opcode mnemonics by Alexey Galakhov and @missla. Adapted from SPECS and
--- src/capt-command.h in the captdriver tree.
+-- Portions adapted from Captdriver (SPECS and src/capt-command.h)
 
 --
 -- NOTE: When opening another log in the Wireshark GUI without restarting,
@@ -48,23 +47,103 @@ TYPE_NOT_OPCODE = 0x0
 TYPE_IS_OPCODE = 0x01
 TYPE_IS_CONTROL = 0x02
 
--- Segmented Response Packet Journal
-local last_spd = {} -- last segmented packet data
-local response_headers = {} -- header: frame number->content lookup
-local response_pairs = {} -- body<->header: frame number lookup
+-- Dissector Journal
+--
+-- Device-to-host communications in CAPT/USB are split down across
+-- segments: the first segment contains the first six bytes only,
+-- while subsequent segments contain the rest of the communication,
+-- split across segments of a fixed size.
+--
+-- All known CAPT devices at time of writing have been strictly
+-- synchronous with segmented packets; the whole packet must be sent
+-- before the device moves on to the next communication.
+--
+-- Segment Tracker Status Data Format Summary
+-- ------------------------------------------
+-- The segment tracker counts the number of bytes left in the
+-- communication to consider as part of a segmented packet.
+-- A communication is defined as an exchange of data between
+-- two USB endpoints (called "ports" in Wireshark) per direction.
+--
+-- Each communicaion is assigned a string identifier like:
+-- "src_port=>dst_port"
+-- e.g. "2=>4294967295" for port 2 to host
+--
+-- An exchange between the same ports in a different direction
+-- constitutes two different communications.
+-- e.g. "2=>4294967295" and "4294967295=>2" are two different comms.
+--
+-- The format is as follows:
+--
+-- seg_status[id] => c
+-- c.header_number		-- number of last visited header packet
+-- c.last_packet_number -- number of last visited packet
+-- c.byte_count			-- number of bytes left on segmented packet
+--
+-- Segment Journal Data Format Summary
+-- -----------------------------------
+-- The Segment Journal keeps track of the contents and relationships
+-- between segments. The format is as follows:
+--
+-- n is the Wireshark packet number
+--
+-- seg_journal[n] => s
+-- s.prev_packet	-- number of previous packet (nil if header)
+-- s.next_packet	-- number of next packet (nil if last segment)
+-- s.content		-- contents of packet
+--
+-- TODO: Use formal OOP with classes?
+-- TODO: Re-implement using linked lists
+--
+local seg_status = {}
+local seg_journal = {}
 
--- TODO: make protocol names look prettier in WS
+local function comm_id(src_port, dst_port)
+	return string.format("%s=>%s", src_port, dst_port)
+end
+
+local function get_status(sobj, src_port, dst_port)
+	return sobj[comm_id(src_port, dst_port)]
+end
+
+local function set_status(sobj, src_port, dst_port, last_n, header_n, byte_count)
+	-- Create or update a status register for the communications
+	-- between src_port and dst_port.
+	-- Arguments header_n and byte_count may be set to nil to keep
+	-- these fields unmodified.
+	cid = comm_id(src_port, dst_port)
+	if not sobj[cid] then sobj[cid] = {} end
+	sobj[cid].last_number = last_n
+	if header_n then sobj[cid].header_number = header_n end
+	if byte_count then sobj[cid].byte_count = byte_count end
+end
+
+local function del_status(sobj, src_port, dst_port)
+	sobj[cid] = nil
+end
+
+local function set_journal_entry(jobj, n, content, prev_n, next_n)
+	-- Create or update a segment packet journal entry for packet n.
+	-- Arguments content, prev_n and next_n may be nil to keep these
+	-- fields unmodified.
+	if not jobj[n] then jobj[n] = {} end
+	if content then jobj[n].content = content end
+	if prev_n then jobj[n].prev_packet = prev_n end
+	if next_n then jobj[n].next_packet = next_n end
+end
+
 capt_proto = Proto("capt", "Canon Advanced Printing Technology")
 opcodes_stat = {
-    [0xA0A1] = "CAPT_CHKJOBSTAT",
-    [0xA0A4] = "CAPT_A0_A4", -- as seen on LBP5200
-    [0xA0A6] = "CAPT_A0_A6", --
-    [0xA0A8] = "CAPT_XSTATUS",
-    [0xA0A9] = "CAPT_A0_A9", -- as seen on LBP7200
-    [0xA1A0] = "CAPT_IEEE_IDENT",
-    [0xA1A1] = "CAPT_IDENT",
-    [0xA3A3] = "CAPT_PAGE_COUNT", -- as seen on LBP5200
-    [0xE0A0] = "CAPT_CHKSTATUS",
+	[0xA0A1] = "CAPT_CHKJOBSTAT",
+	[0xA0A2] = "CAPT_A0_A2", -- seen on LBP7200
+	[0xA0A4] = "CAPT_A0_A4", -- seen on LBP5200
+	[0xA0A6] = "CAPT_A0_A6", -- seen on LBP5200
+	[0xA0A8] = "CAPT_XSTATUS",
+	[0xA0A9] = "CAPT_A0_A9", -- as seen on LBP7200
+	[0xA1A0] = "CAPT_IEEE_IDENT",
+	[0xA1A1] = "CAPT_IDENT",
+	[0xA3A3] = "CAPT_PAGE_COUNT", -- as seen on LBP5200
+	[0xE0A0] = "CAPT_CHKSTATUS",
 }
 opcodes_prn = {
 	[0xA0A0] = "CAPT_NOP", -- not quite a NOP on LBP5200 (CAPT 2.0)
@@ -105,8 +184,8 @@ for k, v in pairs(opcodes_stat) do opcodes[k] = v end
 for k, v in pairs(opcodes_prn) do opcodes[k] = v end
 
 local capt_comment = ProtoField.string("capt.comment", "Comment")
-local capt_header_pn = ProtoField.framenum("capt.header_frame", "Response Header in Frame")
-local capt_body_pn = ProtoField.framenum("capt.body_frame", "Response Body in Frame")
+local capt_prev_segment_pn = ProtoField.framenum("capt.prev_segment", "Previous Segment in Frame")
+local capt_next_segment_pn = ProtoField.framenum("capt.next_segment", "Next Segment in Frame")
 local capt_cmd = ProtoField.uint16("capt.cmd","Command", base.HEX, opcodes)
 local dump = ProtoField.new("Dump", "capt.packet_dump", ftypes.BYTES)
 local pkt_size = ProtoField.uint16("capt.packet_size", "Packet Size", base.DEC)
@@ -114,8 +193,8 @@ local params = ProtoField.new("Parameters", "capt.param_dump", ftypes.BYTES)
 	-- PROTIP: ProtoField.new puts name argument first
 capt_proto.fields = {
 	capt_comment,
-	capt_header_pn,
-	capt_body_pn,
+	capt_next_segment_pn,
+	capt_prev_segment_pn,
 	capt_cmd,
 	dump,
 	pkt_size,
@@ -144,77 +223,91 @@ function capt_proto.dissector(buffer, pinfo, tree)
 	local size
 
 	tree:add(capt_comment, REMINDER_CLEAR_JOURNAL)
-	if buflen >= 2 then
+	if buflen >= 4 then
 		br_opcode = buffer2(0, 2)
 		opcode = br_opcode:le_uint()
+		br_size = buffer2(2, 2)
+		size = br_size:le_uint()
 		optype = capt_opcode_type(opcode)
 	end
 
-	-- detect segmented response bodies
-	if optype == TYPE_NOT_OPCODE then
-		local hn = response_pairs[pinfo.number]
-		-- pair response body and header on first visit to packet
-		if not hn then
-			do
-				-- PROTIP: a nil last_spd.number resolves to a number always
-				-- higher than pinfo.number as a hack to fail this test
-				local test = (last_spd.number or pinfo.number+1) < pinfo.number
-					and last_spd.src_port == pinfo.src_port
-					and last_spd.dst_port == pinfo.dst_port
-					and buflen == last_spd.expected_body_size
-				if test then
-					response_pairs[pinfo.number] = last_spd.number
-					response_pairs[last_spd.number] = pinfo.number
-					last_spd = {} -- reset to prevent spurious pairings
-					return
-				else
-					-- no last known header: assume unknown opcode
-					pinfo.cols.info:set(string.format("Non-CAPT packet or unknown opcode 0x%x", opcode))
-					tree:add(dump, buffer2())
-					return
-				end
-			end
-		else
-			-- attempt to reassemble packet if 'matching' header found
-			do
-				local hbytes = response_headers[hn]
-				local rabytes = ByteArray.new()
-				rabytes:append(hbytes)
-				rabytes:append(buffer2:bytes())
-				-- switch buffers, re-detect opcode and size
-				buffer2 = rabytes:tvb('Response')
-				buflen = buffer2:len()
-				br_opcode = buffer2(0, 2)
-				t_pckt = tree:add(capt_proto, buffer2())
-				t_pckt:add(capt_header_pn, hn)
-				t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
-			end
-		end
-	elseif buflen >= 4 then
-		-- handle packets with command
-		br_size = buffer2(2, 2)
-		size = br_size:le_uint()
-		if bit32.btest(optype, TYPE_IS_OPCODE) then
-			t_pckt = tree:add(capt_proto, buffer2())
-			t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
-			if size > buflen then
-				-- headers of segmented packets
-				local pn = pinfo.number
-				if not response_headers[pn] then
-					response_headers[pn] = buffer2:bytes()
-				end
-				if not response_pairs[pn] then
-					last_spd.number = pn
-					last_spd.src_port = pinfo.src_port
-					last_spd.dst_port = pinfo.dst_port
-					last_spd.expected_body_size = size - HEADER_SIZE
-					t_pckt:add(capt_comment, "See next Response Body from this source to host for remaining data")
-				else
-					pinfo.cols.protocol = "CAPT Rx Header"
-					t_pckt:add(capt_body_pn, response_pairs[pn])
-					return
-				end
-			end
+	local jentry = seg_journal[pinfo.number]
+	if jentry then
+	    -- handle accounted packet segments first
+	    if jentry.prev_packet then
+	        t_pckt:add(capt_prev_segment_pn, jentry.prev_packet)
+	    end
+	    if jentry.next_packet then
+	        t_pckt:add(capt_next_segment_pn, jentry.next_packet)
+	        t_pckt:add(dump, buffer2())
+	        if jentry.prev_packet then
+	            pinfo.cols.protocol = "CAPT Rx Mid Seg."
+	            return
+	        else
+	            t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
+	        end
+	    elseif jentry.content then
+	        buffer2 = jentry.content:tvb('Desegmented')
+	        br_opcode = buffer2(0,2)
+	        t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
+	    end
+	else
+	    local st = get_status(seg_status, pinfo.src_port, pinfo.dst_port)
+	    if not st then
+	        -- not seeking segments
+	        if bit32.btest(optype, TYPE_IS_OPCODE) then
+	            t_pckt = tree:add(capt_proto, buffer2())
+	            t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
+	            if size > buflen then
+	                -- handle header of segmented packets,
+					-- start seeking segments
+	                set_journal_entry(
+						seg_journal, pinfo.number, buffer2:bytes(),
+						nil, nil
+					)
+	                set_status(
+						seg_status, pinfo.src_port, pinfo.dst_port,
+						pinfo.number, pinfo.number, size-buflen
+					)
+	                return
+	            else
+	                del_status(
+						seg_status, pinfo.src_port, pinfo.dst_port
+					)
+	            end
+	        end
+	    else
+	        set_journal_entry(
+				seg_journal, st.last_number, nil, nil, pinfo.number
+			)
+	        set_journal_entry(
+				seg_journal, pinfo.number, buffer2:bytes(),
+				st.last_number, nil
+			)
+	        if st.byte_count > buflen then
+	            -- handle middle segments
+	            set_status(
+					seg_status, pinfo.src_port, pinfo.dst_port,
+					pinfo.number, nil, st.byte_count-buflen
+				)
+	        else
+	            -- handle end segments
+	            tmpbuf = ByteArray.new()
+	            local segn = st.header_number
+	            while segn do
+	                tmpbuf:append(seg_journal[segn].content)
+	                segn = seg_journal[segn].next_packet
+	            end
+	            set_journal_entry(
+					seg_journal, pinfo.number, tmpbuf,
+					st.last_number, nil
+				)
+	            del_status(seg_status, pinfo.src_port, pinfo.dst_port)
+	            if st.byte_count < buflen then
+	                t_pckt:add(capt_comment, "Warning: incorrect count detected, device firmware bug or log corruption suspected")
+	            end
+	        end
+            return
 		end
 	end
 	run_sub_dissector(buffer2, pinfo, t_captcmd)
@@ -280,6 +373,8 @@ end
 --
 -- Device Control Sub-Dissectors
 --
+-- PROTIP: Sub-dissector buffer includes only parameters or payload,
+-- opcode and packet size have been stripped away by main dissector.
 
 -- 0xA0A1, 0xA0A8, 0xE0A0: Status Checks
 -- Just dump all bytes into the information column
@@ -556,9 +651,8 @@ dt_usb:add(0xffff, capt_proto)
 
 -- Helper Functions, Listeners, etc...
 local function clear_journal()
-	last_spd = {}
-	response_headers = {}
-	response_pairs = {}
+	seg_status = {}
+	seg_journal = {}
 	if gui_enabled() then
 		reload_packets()
 	end
