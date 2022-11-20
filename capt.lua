@@ -314,6 +314,7 @@ function capt_proto.dissector(buffer, pinfo, tree)
 end
 
 function run_sub_dissector(buffer, pinfo, tree)
+	if not tree then return end
 	buflen = buffer:len()
 	br_opcode = buffer(0, 2)
 	br_size = buffer(2, 2)
