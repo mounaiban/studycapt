@@ -317,67 +317,10 @@ function capt_proto.dissector(buffer, pinfo, tree) do
 	run_sub_dissector(buffer2, pinfo, t_captcmd)
 end end
 
-function run_sub_dissector(buffer, pinfo, tree)
-	if not tree then return end
-	buflen = buffer:len()
-	br_opcode = buffer(0, 2)
-	br_size = buffer(2, 2)
-	size = br_size:le_uint()
-	tree:add_le(pkt_size, br_size)
-	opcode = br_opcode:le_uint()
-	optype = capt_opcode_type(opcode)
-	mne = opcodes_prn[opcode] or opcodes[opcode]
-	if bit32.btest(optype, TYPE_IS_CONTROL) then
-		pinfo.cols.protocol = "CAPT Control"
-		pinfo.cols.info:append(string.format(" %s", mne))
-	else
-		pinfo.cols.protocol = "CAPT Status"
-		pinfo.cols.info:set(mne)
-	end
-	if pinfo.dst_port ~= HOST_PORT then
-	    pinfo.cols.info:append(" (send)")
-	elseif size <= buflen then
-	    pinfo.cols.info:append(string.format(" (rx 0x%x/%d B)", size, size))
-	end
-
-	-- dissect!
-	if opcode == 0xD0A9 then
-		-- multi-command packet
-		pinfo.cols.info:set(string.format("%s:", mne))
-		do
-			local i = 4
-			local size_mc = size
-			while i < size_mc do
-				local n = buffer(i+2, 2):le_uint()
-				local gr_opcode = buffer(i, 2):le_uint()
-				local gr_mne = opcodes_prn[gr_opcode]
-				local t_gcmd = tree:add_le(capt_cmd, buffer(i, 2))
-				run_sub_dissector(buffer(i, n):tvb(), pinfo, t_gcmd)
-				i = i + n
-			end
-		end
-	elseif size <= buflen then
-		local br_parm = buffer(4, -1)
-		if size > 4 then tree:add(params, br_parm) end
-		-- select sub-dissector
-		if opcode == 0xA0A1 or opcode == 0xA0A8 or opcode == 0xE0A0 then
-			capt_stat_proto.dissector(br_parm:tvb(), pinfo, tree)
-		elseif opcode == 0xA1A1 then
-			a1a1_proto.dissector(br_parm:tvb(), pinfo, tree)
-		elseif opcode == 0xA3A3 then
-			a3a3_proto.dissector(br_parm:tvb(), pinfo, tree)
-		elseif opcode == 0xD0A0 then
-			d0a0_proto.dissector(br_parm:tvb(), pinfo, tree)
-		elseif opcode == 0xD0A4 then
-			d0a4_proto.dissector(br_parm:tvb(), pinfo, tree)
-		elseif opcode == 0xE1A1 then
-			e1a1_proto.dissector(br_parm:tvb(), pinfo, tree)
-		end
-	end
-end
+-- TODO: create default sub-dissector
 
 --
--- Device Control Sub-Dissectors
+-- Sub-Dissectors
 --
 -- PROTIP: Sub-dissector buffer includes only parameters or payload,
 -- opcode and packet size have been stripped away by main dissector.
@@ -693,6 +636,65 @@ local function dump_seg_journal() do
 		print(string.format("%s: {prev: %s, next: %s, contains: %s}", v.id, v.prev_packet, v.next_packet, v.content))
 	end
 end end
+
+local sub_dissectors = {
+	[0xA0A1] = capt_stat_proto.dissector,
+	[0xA1A1] = a1a1_proto.dissector,
+	[0xA3A3] = a3a3_proto.dissector,
+	[0xA0A8] = capt_stat_proto.dissector,
+	[0xD0A0] = d0a0_proto.dissector,
+	[0xD0A4] = d0a4_proto.dissector,
+	[0xE0A0] = capt_stat_proto.dissector,
+	[0xE1A1] = e1a1_proto.dissector,
+}
+
+function run_sub_dissector(buffer, pinfo, tree)
+	if not tree then return end
+	buflen = buffer:len()
+	br_opcode = buffer(0, 2)
+	br_size = buffer(2, 2)
+	size = br_size:le_uint()
+	tree:add_le(pkt_size, br_size)
+	opcode = br_opcode:le_uint()
+	optype = capt_opcode_type(opcode)
+	mne = opcodes_prn[opcode] or opcodes[opcode]
+	if bit32.btest(optype, TYPE_IS_CONTROL) then
+		pinfo.cols.protocol = "CAPT Control"
+		pinfo.cols.info:append(string.format(" %s", mne))
+	else
+		pinfo.cols.protocol = "CAPT Status"
+		pinfo.cols.info:set(mne)
+	end
+	if pinfo.dst_port ~= HOST_PORT then
+	    pinfo.cols.info:append(" (send)")
+	elseif size <= buflen then
+	    pinfo.cols.info:append(string.format(" (rx 0x%x/%d B)", size, size))
+	end
+
+	-- dissect!
+	if opcode == 0xD0A9 then
+		-- multi-command packet
+		pinfo.cols.info:set(string.format("%s:", mne))
+		do
+			local i = 4
+			local size_mc = size
+			while i < size_mc do
+				local n = buffer(i+2, 2):le_uint()
+				local gr_opcode = buffer(i, 2):le_uint()
+				local gr_mne = opcodes_prn[gr_opcode]
+				local t_gcmd = tree:add_le(capt_cmd, buffer(i, 2))
+				run_sub_dissector(buffer(i, n):tvb(), pinfo, t_gcmd)
+				i = i + n
+			end
+		end
+	elseif size <= buflen then
+		local br_parm = buffer(4, -1)
+		if size > 4 then tree:add(params, br_parm) end
+		if sub_dissectors[opcode] then
+			sub_dissectors[opcode](br_parm:tvb(), pinfo, tree)
+		end
+	end
+end
 
 register_menu("Clear CAPT Segment Journal and _Reload", clear_journal, MENU_TOOLS_UNSORTED)
 register_menu("Dump _Segment Journal", dump_seg_journal, MENU_TOOLS_UNSORTED)
