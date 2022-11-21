@@ -134,6 +134,7 @@ end
 
 capt_proto = Proto("capt", "Canon Advanced Printing Technology")
 opcodes_stat = {
+	[0xA0A0] = "CAPT_NOP", -- not quite a NOP on LBP5200 (CAPT 2.0)
 	[0xA0A1] = "CAPT_CHKJOBSTAT",
 	[0xA0A2] = "CAPT_A0_A2", -- seen on LBP7200
 	[0xA0A4] = "CAPT_A0_A4", -- seen on LBP5200
@@ -146,7 +147,6 @@ opcodes_stat = {
 	[0xE0A0] = "CAPT_CHKSTATUS",
 }
 opcodes_prn = {
-	[0xA0A0] = "CAPT_NOP", -- not quite a NOP on LBP5200 (CAPT 2.0)
 	[0xA2A0] = "CAPT_JOB_BEGIN",
 	[0xA3A2] = "CAPT_START_0",
 	[0xC0A0] = "CAPT_PRINT_DATA",
