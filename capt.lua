@@ -329,11 +329,11 @@ function run_sub_dissector(buffer, pinfo, tree)
 	else
 		pinfo.cols.protocol = "CAPT Status"
 		pinfo.cols.info:set(mne)
-		if pinfo.dst_port ~= HOST_PORT then
-			pinfo.cols.info:append(" (send)")
-		else
-			pinfo.cols.info:append(string.format(" (rx 0x%x/%d B)", size, size))
-		end
+	end
+	if pinfo.dst_port ~= HOST_PORT then
+	    pinfo.cols.info:append(" (send)")
+	elseif size <= buflen then
+	    pinfo.cols.info:append(string.format(" (rx 0x%x/%d B)", size, size))
 	end
 
 	-- dissect!
