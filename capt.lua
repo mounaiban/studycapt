@@ -361,6 +361,8 @@ function run_sub_dissector(buffer, pinfo, tree)
 			capt_stat_proto.dissector(br_parm:tvb(), pinfo, tree)
 		elseif opcode == 0xA1A1 then
 			a1a1_proto.dissector(br_parm:tvb(), pinfo, tree)
+		elseif opcode == 0xA3A3 then
+			a3a3_proto.dissector(br_parm:tvb(), pinfo, tree)
 		elseif opcode == 0xD0A0 then
 			d0a0_proto.dissector(br_parm:tvb(), pinfo, tree)
 		elseif opcode == 0xD0A4 then
@@ -465,6 +467,23 @@ function a1a1_proto.dissector(buffer, pinfo, tree) do
 	tree:add_le(a1a1_capt_ver, buffer(48,1))
 	if size <= 52 then return end
 	tree:add(a1a1_capt3_info, buffer(52,8))
+end end
+
+-- 0xA3A3: CAPT_PAGE_COUNT
+local prefix = "capt_page_count"
+local a3a3_index = ProtoField.uint16(prefix .. ".index", "Index", base.DEC)
+local a3a3_count = ProtoField.uint16(prefix .. ".count", "Count", base.DEC)
+a3a3_proto = Proto(prefix, "CAPT: Page Count")
+a3a3_proto.fields = {a3a3_index, a3a3_count}
+function a3a3_proto.dissector(buffer, pinfo, tree) do
+	if pinfo.dst_port ~= HOST_PORT then
+		-- request
+		tree:add_le(a3a3_index, buffer(0, 2))
+	else
+		-- response
+		tree:add_le(a3a3_index, buffer(0, 2))
+		tree:add_le(a3a3_count, buffer(4, 2))
+	end
 end end
 
 -- 0xD0A0: CAPT_SET_PARM_PAGE
