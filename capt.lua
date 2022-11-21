@@ -98,15 +98,15 @@ TYPE_IS_CONTROL = 0x02
 local seg_status = {}
 local seg_journal = {}
 
-local function comm_id(src_port, dst_port)
+local function comm_id(src_port, dst_port) do
 	return string.format("%s=>%s", src_port, dst_port)
-end
+end end
 
-local function get_status(sobj, src_port, dst_port)
+local function get_status(sobj, src_port, dst_port) do
 	return sobj[comm_id(src_port, dst_port)]
-end
+end end
 
-local function set_status(sobj, src_port, dst_port, last_n, header_n, byte_count)
+local function set_status(sobj, src_port, dst_port, last_n, header_n, byte_count) do
 	-- Create or update a status register for the communications
 	-- between src_port and dst_port.
 	-- Arguments header_n and byte_count may be set to nil to keep
@@ -116,13 +116,13 @@ local function set_status(sobj, src_port, dst_port, last_n, header_n, byte_count
 	sobj[cid].last_number = last_n
 	if header_n then sobj[cid].header_number = header_n end
 	if byte_count then sobj[cid].byte_count = byte_count end
-end
+end end
 
-local function del_status(sobj, src_port, dst_port)
+local function del_status(sobj, src_port, dst_port) do
 	sobj[cid] = nil
-end
+end end
 
-local function set_journal_entry(jobj, n, content, prev_n, next_n)
+local function set_journal_entry(jobj, n, content, prev_n, next_n) do
 	-- Create or update a segment packet journal entry for packet n.
 	-- Arguments content, prev_n and next_n may be nil to keep these
 	-- fields unmodified.
@@ -130,7 +130,7 @@ local function set_journal_entry(jobj, n, content, prev_n, next_n)
 	if content then jobj[n].content = content end
 	if prev_n then jobj[n].prev_packet = prev_n end
 	if next_n then jobj[n].next_packet = next_n end
-end
+end end
 
 capt_proto = Proto("capt", "Canon Advanced Printing Technology")
 opcodes_stat = {
@@ -201,16 +201,16 @@ capt_proto.fields = {
 	params,
 }
 
-local function capt_opcode_type(opcode)
+local function capt_opcode_type(opcode) do
 	if opcodes_prn[opcode] then
 		return bit32.bor(TYPE_IS_OPCODE, TYPE_IS_CONTROL)
 	elseif opcodes[opcode] then
 		return bit32.bor(TYPE_IS_OPCODE)
 	end
 	return TYPE_NOT_OPCODE
-end
+end end
 
-function capt_proto.dissector(buffer, pinfo, tree)
+function capt_proto.dissector(buffer, pinfo, tree) do
 	local buffer2 = buffer
 	local buflen = buffer2:len()
 	local t_pckt = tree
@@ -307,11 +307,11 @@ function capt_proto.dissector(buffer, pinfo, tree)
 	                t_pckt:add(capt_comment, "Warning: incorrect count detected, device firmware bug or log corruption suspected")
 	            end
 	        end
-            return
+	        return
 		end
 	end
 	run_sub_dissector(buffer2, pinfo, t_captcmd)
-end
+end end
 
 function run_sub_dissector(buffer, pinfo, tree)
 	if not tree then return end
