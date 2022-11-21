@@ -352,10 +352,9 @@ function run_sub_dissector(buffer, pinfo, tree)
 				i = i + n
 			end
 		end
-	elseif buflen > HEADER_SIZE then
-		-- unsegmented or desegmented packet
+	elseif size <= buflen then
 		local br_parm = buffer(4, -1)
-		tree:add(params, br_parm)
+		if size > 4 then tree:add(params, br_parm) end
 		-- select sub-dissector
 		if opcode == 0xA0A1 or opcode == 0xA0A8 or opcode == 0xE0A0 then
 			capt_stat_proto.dissector(br_parm:tvb(), pinfo, tree)
@@ -442,6 +441,8 @@ a1a1_proto.fields = {
 	a1a1_capt3_info,
 }
 function a1a1_proto.dissector(buffer, pinfo, tree) do
+	if pinfo.dst_port ~= HOST_PORT then return end
+		-- 0xA1A1 requests have no parameters
 	local size = buffer:len()
 	tree:add_le(a1a1_mag_info_a, buffer(0,2))
 	tree:add_le(a1a1_mag_info_b, buffer(2,2))
