@@ -91,6 +91,7 @@ TYPE_IS_CONTROL = 0x02
 -- s.prev_packet	-- number of previous packet (nil if header)
 -- s.next_packet	-- number of next packet (nil if last segment)
 -- s.content		-- contents of packet
+-- s.id				-- sort order (packet number, but as number not string)
 --
 -- TODO: Use formal OOP with classes?
 -- TODO: Re-implement using linked lists
@@ -126,7 +127,10 @@ local function set_journal_entry(jobj, n, content, prev_n, next_n) do
 	-- Create or update a segment packet journal entry for packet n.
 	-- Arguments content, prev_n and next_n may be nil to keep these
 	-- fields unmodified.
-	if not jobj[n] then jobj[n] = {} end
+	if not jobj[n] then
+		jobj[n] = {}
+		jobj[n].id = tonumber(n)
+	end
 	if content then jobj[n].content = content end
 	if prev_n then jobj[n].prev_packet = prev_n end
 	if next_n then jobj[n].next_packet = next_n end
@@ -674,9 +678,21 @@ dt_usb:add(0xffff, capt_proto)
 local function clear_journal()
 	seg_status = {}
 	seg_journal = {}
-	if gui_enabled() then
-		reload_packets()
-	end
+	if gui_enabled() then reload_packets() end
 end
 
+local function dump_seg_journal() do
+	print("Segment Journal Dump")
+	-- Lua in Wireshark 2.6.6 did not have table.unpack, so this
+	-- is the workaround, inspired by Stack Overflow #24164118
+	-- https://stackoverflow.com/questions/24164118/how-to-sort-a-table-in-lua
+	local dump = {}
+	for k, v in pairs(seg_journal) do table.insert(dump, v) end
+	table.sort(dump, function(x,y) return x.id < y.id end)
+	for k, v in pairs(dump) do
+		print(string.format("%s: {prev: %s, next: %s, contains: %s}", v.id, v.prev_packet, v.next_packet, v.content))
+	end
+end end
+
 register_menu("Clear CAPT Segment Journal and _Reload", clear_journal, MENU_TOOLS_UNSORTED)
+register_menu("Dump _Segment Journal", dump_seg_journal, MENU_TOOLS_UNSORTED)
