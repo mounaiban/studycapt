@@ -640,7 +640,10 @@ local function dump_seg_journal() do
 end end
 
 local sub_dissectors = {
+	[0xA0A0] = capt_stat_proto.dissector,
 	[0xA0A1] = capt_stat_proto.dissector,
+	[0xA0A4] = capt_stat_proto.dissector,
+	[0xA0A6] = capt_stat_proto.dissector,
 	[0xA1A1] = a1a1_proto.dissector,
 	[0xA3A3] = a3a3_proto.dissector,
 	[0xA0A8] = capt_stat_proto.dissector,
