@@ -325,12 +325,14 @@ end end
 -- PROTIP: Sub-dissector buffer includes only parameters or payload,
 -- opcode and packet size have been stripped away by main dissector.
 
--- 0xA0A1, 0xA0A8, 0xE0A0: Status Checks
--- Just dump all bytes into the information column
+-- Default Status Check Dissector for Uncharted Status Registers
 capt_stat_proto = Proto("capt_status", "CAPT Status")
 function capt_stat_proto.dissector(buffer, pinfo, tree) do
-	local dumphex = buffer(0,-1):bytes():tohex(false, ' ')
-	pinfo.cols.info:append(string.format(": %s", dumphex))
+	-- just dump all bytes into the information column
+	if buffer:len() > 4 then
+		local dumphex = buffer(0,-1):bytes():tohex(false, ' ')
+		pinfo.cols.info:append(string.format(": %s", dumphex))
+	end
 end end
 
 -- 0xA1A1: CAPT_IDENT
