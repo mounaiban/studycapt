@@ -42,6 +42,7 @@
 
 HEADER_SIZE = 6
 HOST_PORT = 0xFFFFFFFF  -- USB host in pinfo.dst_port or pinfo.src_port
+PLACEHOLDER_FMT = "CAPT Device at %s"
 REMINDER_CLEAR_JOURNAL = "If this looks incorrect, try Tools -> Clear CAPT Segment Journal and Reload in the menu if in the GUI."
 TYPE_NOT_OPCODE = 0x0
 TYPE_IS_OPCODE = 0x01
@@ -93,11 +94,25 @@ TYPE_IS_CONTROL = 0x02
 -- s.content		-- contents of packet
 -- s.id				-- sort order (packet number, but as number not string)
 --
--- TODO: Use formal OOP with classes?
--- TODO: Re-implement using linked lists
+-- TODO: Re-implement segment journals using linked lists?
 --
+-- Device Journal Data Format Summary
+-- ----------------------------------
+-- The Device Journal attempts to associate a USB endpoint (represented
+-- by a Wireshark port) with a human-readable name, such as an IEEE 1284
+-- device identifier string, or a placeholder name.
+--
+-- u is the Wireshark USB device number, without the endpoint number.
+-- e.g. 1.2.0 => 1.2
+--
+-- dev_journal[u] => (string)
+--
+--
+-- TODO: Use formal OOP with classes with journals?
+
 local seg_status = {}
 local seg_journal = {}
+local dev_journal = {}
 
 local function comm_id(src_port, dst_port) do
 	return string.format("%s=>%s", src_port, dst_port)
@@ -105,6 +120,26 @@ end end
 
 local function get_status(sobj, src_port, dst_port) do
 	return sobj[comm_id(src_port, dst_port)]
+end end
+
+local function get_device_id(addrstr) do
+	s = string.match(addrstr, "^%d+%.%d+")
+	if s then return s
+	else return addrstr
+	end
+end end
+
+local function get_device_string(luobj, devid) do
+	-- Returns: s, b
+	-- s => device name string from lookup 'luobj'
+	-- b => true if name found in journal (not placeholder)
+	if luobj[devid] then return luobj[devid], true
+	else return string.format(PLACEHOLDER_FMT, devid), false
+	end
+end end
+
+local function set_device_name(luobj, addrstr, name) do
+	luobj[addrstr] = name
 end end
 
 local function set_status(sobj, src_port, dst_port, last_n, header_n, byte_count) do
@@ -188,6 +223,8 @@ for k, v in pairs(opcodes_stat) do opcodes[k] = v end
 for k, v in pairs(opcodes_prn) do opcodes[k] = v end
 
 local capt_comment = ProtoField.string("capt.comment", "Comment")
+local capt_dst_dev_name = ProtoField.new("Destination Device", "capt.dst_dev_name", ftypes.STRING)
+local capt_src_dev_name = ProtoField.new("Source Device", "capt.src_dev_name", ftypes.STRING)
 local capt_prev_segment_pn = ProtoField.framenum("capt.prev_segment", "Previous Segment in Frame")
 local capt_next_segment_pn = ProtoField.framenum("capt.next_segment", "Next Segment in Frame")
 local capt_cmd = ProtoField.uint16("capt.cmd","Command", base.HEX, opcodes)
@@ -197,6 +234,8 @@ local params = ProtoField.new("Parameters", "capt.param_dump", ftypes.BYTES)
 	-- PROTIP: ProtoField.new puts name argument first
 capt_proto.fields = {
 	capt_comment,
+	capt_dst_dev_name,
+	capt_src_dev_name,
 	capt_next_segment_pn,
 	capt_prev_segment_pn,
 	capt_cmd,
@@ -226,7 +265,14 @@ function capt_proto.dissector(buffer, pinfo, tree) do
 	local optype = TYPE_NOT_OPCODE
 	local size
 
+	-- TODO: consolidate common packet info to dissector dispatch
 	tree:add(capt_comment, REMINDER_CLEAR_JOURNAL)
+	local sdev, st = get_device_string(dev_journal, get_device_id(tostring(pinfo.src)))
+	local ddev, dt = get_device_string(dev_journal, get_device_id(tostring(pinfo.dst)))
+	tree:add(capt_src_dev_name, sdev)
+	-- if st then pinfo.cols.src_res = sdev end -- NOTE: doesn't work on WS 2.66
+	tree:add(capt_dst_dev_name, ddev)
+	-- if dt then pinfo.cols.dst_res = ddev end -- NOTE: doesn't work
 	if buflen >= 4 then
 		br_opcode = buffer2(0, 2)
 		opcode = br_opcode:le_uint()
@@ -275,9 +321,16 @@ function capt_proto.dissector(buffer, pinfo, tree) do
 					)
 	                return
 	            else
-	                del_status(
-						seg_status, pinfo.src_port, pinfo.dst_port
-					)
+	                del_status(seg_status, pinfo.src_port, pinfo.dst_port)
+	            end
+	        else
+	            if buflen >= 5 then
+	                -- check for, and save, device names from IEEE 1284 IDs
+	                if buffer2(0, 5):string() == "\00FMFG" then
+	                    tmp = buffer2(1):string()
+	                    tmp = string.match(tmp, "MDL%:(.-)%;")
+	                    dev_journal[get_device_id(tostring(pinfo.src))] = tmp
+	                end
 	            end
 	        end
 	    else
@@ -623,6 +676,7 @@ dt_usb:add(0xffff, capt_proto)
 local function clear_journal()
 	seg_status = {}
 	seg_journal = {}
+	dev_journal = {}
 	if gui_enabled() then reload_packets() end
 end
 
