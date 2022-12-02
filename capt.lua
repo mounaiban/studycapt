@@ -301,6 +301,7 @@ function capt_proto.dissector(buffer, pinfo, tree) do
 	        end
 	    elseif jentry.content then
 	        buffer2 = jentry.content:tvb('Desegmented')
+	        t_pckt = tree:add(capt_proto, buffer2())
 	        br_opcode = buffer2(0,2)
 	        t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
 	    end
