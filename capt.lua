@@ -230,7 +230,7 @@ local capt_next_segment_pn = ProtoField.framenum("capt.next_segment", "Next Segm
 local capt_cmd = ProtoField.uint16("capt.cmd","Command", base.HEX, opcodes)
 local dump = ProtoField.new("Dump", "capt.packet_dump", ftypes.BYTES)
 local pkt_size = ProtoField.uint16("capt.packet_size", "Packet Size", base.DEC)
-local params = ProtoField.new("Parameters", "capt.param_dump", ftypes.BYTES)
+local payload = ProtoField.new("Payload", "capt.param_dump", ftypes.BYTES)
 	-- PROTIP: ProtoField.new puts name argument first
 capt_proto.fields = {
 	capt_comment,
@@ -241,7 +241,7 @@ capt_proto.fields = {
 	capt_cmd,
 	dump,
 	pkt_size,
-	params,
+	payload,
 }
 
 local function capt_opcode_type(opcode) do
@@ -748,7 +748,7 @@ function run_sub_dissector(buffer, pinfo, tree)
 		end
 	elseif size <= buflen then
 		local br_parm = buffer(4, -1)
-		if size > 4 then tree:add(params, br_parm) end
+		if size > 4 then tree:add(payload, br_parm) end
 		if sub_dissectors[opcode] then
 			sub_dissectors[opcode](br_parm:tvb(), pinfo, tree)
 		end
