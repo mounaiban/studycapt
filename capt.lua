@@ -42,6 +42,7 @@
 
 HEADER_SIZE = 6
 HOST_PORT = 0xFFFFFFFF  -- USB host in pinfo.dst_port or pinfo.src_port
+HOST_DEV = "host"
 PLACEHOLDER_FMT = "CAPT Device at %s"
 REMINDER_CLEAR_JOURNAL = "If this looks incorrect, try Tools -> Clear CAPT Segment Journal and Reload in the menu if in the GUI."
 TYPE_NOT_OPCODE = 0x0
@@ -110,9 +111,9 @@ TYPE_IS_CONTROL = 0x02
 --
 -- TODO: Use formal OOP with classes with journals?
 
-local seg_status = {}
-local seg_journal = {}
-local dev_journal = {}
+local seg_status
+local seg_journal
+local dev_journal
 
 local function comm_id(src_port, dst_port) do
 	return string.format("%s=>%s", src_port, dst_port)
@@ -269,6 +270,7 @@ function capt_proto.dissector(buffer, pinfo, tree) do
 	local size
 
 	-- TODO: consolidate common packet info to dissector dispatch
+	-- TODO: cite packet number containing pretty print info
 	tree:add(capt_comment, REMINDER_CLEAR_JOURNAL)
 	local sdev, st = get_device_string(dev_journal, get_device_id(tostring(pinfo.src)))
 	local ddev, dt = get_device_string(dev_journal, get_device_id(tostring(pinfo.dst)))
@@ -677,10 +679,11 @@ dt_usb:add(0xff, capt_proto)
 dt_usb:add(0xffff, capt_proto)
 
 -- Helper Functions, Listeners, etc...
-local function clear_journal()
+local function init_journal()
 	seg_status = {}
 	seg_journal = {}
 	dev_journal = {}
+	dev_journal[HOST_DEV] = HOST_DEV
 	if gui_enabled() then reload_packets() end
 end
 
@@ -759,5 +762,6 @@ function run_sub_dissector(buffer, pinfo, tree)
 	end
 end
 
-register_menu("Clear CAPT Segment Journal and _Reload", clear_journal, MENU_TOOLS_UNSORTED)
+register_menu("Clear CAPT Segment Journal and _Reload", init_journal, MENU_TOOLS_UNSORTED)
 register_menu("Dump _Segment Journal", dump_seg_journal, MENU_TOOLS_UNSORTED)
+init_journal()
