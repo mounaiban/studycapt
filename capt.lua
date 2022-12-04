@@ -43,6 +43,7 @@
 HEADER_SIZE = 6
 HOST_PORT = 0xFFFFFFFF  -- USB host in pinfo.dst_port or pinfo.src_port
 HOST_DEV = "host"
+NO_PACKET = -1
 PLACEHOLDER_FMT = "CAPT Device at %s"
 REMINDER_CLEAR_JOURNAL = "If this looks incorrect, try Tools -> Clear CAPT Segment Journal and Reload in the menu if in the GUI."
 TYPE_NOT_OPCODE = 0x0
@@ -57,23 +58,24 @@ TYPE_IS_CONTROL = 0x02
 -- split across segments of a fixed size.
 --
 -- All known CAPT devices at time of writing have been strictly
--- synchronous with segmented packets; the whole packet must be sent
--- before the device moves on to the next communication.
+-- synchronous with segmented packets; devices are not known to
+-- start sending another packet before the current is completely
+-- sent.
 --
 -- Segment Tracker Status Data Format Summary
 -- ------------------------------------------
 -- The segment tracker counts the number of bytes left in the
 -- communication to consider as part of a segmented packet.
 -- A communication is defined as an exchange of data between
--- two USB endpoints (called "ports" in Wireshark) per direction.
+-- two USB devices (by bus location) per direction.
 --
 -- Each communicaion is assigned a string identifier like:
--- "src_port=>dst_port"
--- e.g. "2=>4294967295" for port 2 to host
+-- "src=>dst"
+-- e.g. "1.2=>host" for device 1.2 to host
 --
 -- An exchange between the same ports in a different direction
 -- constitutes two different communications.
--- e.g. "2=>4294967295" and "4294967295=>2" are two different comms.
+-- e.g. "1.2=>host" and "host=>1.2" are two different comms.
 --
 -- The format is as follows:
 --
@@ -115,19 +117,21 @@ local seg_status
 local seg_journal
 local dev_journal
 
-local function comm_id(src_port, dst_port) do
-	return string.format("%s=>%s", src_port, dst_port)
-end end
-
-local function get_status(sobj, src_port, dst_port) do
-	return sobj[comm_id(src_port, dst_port)]
-end end
-
 local function get_device_id(addrstr) do
 	s = string.match(addrstr, "^%d+%.%d+")
 	if s then return s
 	else return addrstr
 	end
+end end
+
+local function comm_id(src, dst) do
+	return string.format(
+	    "%s=>%s", get_device_id(tostring(src)), get_device_id(tostring(dst))
+	)
+end end
+
+local function get_status(sobj, src, dst) do
+	return sobj[comm_id(src, dst)]
 end end
 
 local function get_device_string(luobj, devid) do
@@ -143,20 +147,20 @@ local function set_device_name(luobj, addrstr, name) do
 	luobj[addrstr] = name
 end end
 
-local function set_status(sobj, src_port, dst_port, last_n, header_n, byte_count) do
+local function set_status(sobj, src, dst, last_n, header_n, byte_count) do
 	-- Create or update a status register for the communications
-	-- between src_port and dst_port.
+	-- between src and dst.
 	-- Arguments header_n and byte_count may be set to nil to keep
 	-- these fields unmodified.
-	cid = comm_id(src_port, dst_port)
+	cid = comm_id(src, dst)
 	if not sobj[cid] then sobj[cid] = {} end
 	sobj[cid].last_number = last_n
 	if header_n then sobj[cid].header_number = header_n end
 	if byte_count then sobj[cid].byte_count = byte_count end
 end end
 
-local function del_status(sobj, src_port, dst_port) do
-	sobj[cid] = nil
+local function del_status(sobj, src, dst) do
+	sobj[comm_id(src, dst)] = nil
 end end
 
 local function set_journal_entry(jobj, n, content, prev_n, next_n) do
@@ -289,13 +293,13 @@ function capt_proto.dissector(buffer, pinfo, tree) do
 	local jentry = seg_journal[pinfo.number]
 	if jentry then
 	    -- handle accounted packet segments first
-	    if jentry.prev_packet then
+	    if jentry.prev_packet ~= NO_PACKET then
 	        t_pckt:add(capt_prev_segment_pn, jentry.prev_packet)
 	    end
-	    if jentry.next_packet then
+	    if jentry.next_packet ~= NO_PACKET then
 	        t_pckt:add(capt_next_segment_pn, jentry.next_packet)
 	        t_pckt:add(dump, buffer2())
-	        if jentry.prev_packet then
+	        if jentry.prev_packet ~= NO_PACKET then
 	            pinfo.cols.protocol = "CAPT Rx Mid Seg."
 	            return
 	        else
@@ -308,7 +312,7 @@ function capt_proto.dissector(buffer, pinfo, tree) do
 	        t_captcmd = t_pckt:add_le(capt_cmd, br_opcode)
 	    end
 	else
-	    local st = get_status(seg_status, pinfo.src_port, pinfo.dst_port)
+	    local st = get_status(seg_status, pinfo.src, pinfo.dst)
 	    if not st then
 	        -- not seeking segments
 	        if bit32.btest(optype, TYPE_IS_OPCODE) then
@@ -319,15 +323,13 @@ function capt_proto.dissector(buffer, pinfo, tree) do
 					-- start seeking segments
 	                set_journal_entry(
 						seg_journal, pinfo.number, buffer2:bytes(),
-						nil, nil
+						NO_PACKET, NO_PACKET
 					)
 	                set_status(
-						seg_status, pinfo.src_port, pinfo.dst_port,
+						seg_status, pinfo.src, pinfo.dst,
 						pinfo.number, pinfo.number, size-buflen
 					)
 	                return
-	            else
-	                del_status(seg_status, pinfo.src_port, pinfo.dst_port)
 	            end
 	        else
 	            if buflen >= 5 then
@@ -340,6 +342,7 @@ function capt_proto.dissector(buffer, pinfo, tree) do
 	            end
 	        end
 	    else
+	        -- seeking segments
 	        set_journal_entry(
 				seg_journal, st.last_number, nil, nil, pinfo.number
 			)
@@ -350,7 +353,7 @@ function capt_proto.dissector(buffer, pinfo, tree) do
 	        if st.byte_count > buflen then
 	            -- handle middle segments
 	            set_status(
-					seg_status, pinfo.src_port, pinfo.dst_port,
+					seg_status, pinfo.src, pinfo.dst,
 					pinfo.number, nil, st.byte_count-buflen
 				)
 	        else
@@ -362,13 +365,12 @@ function capt_proto.dissector(buffer, pinfo, tree) do
 	                segn = seg_journal[segn].next_packet
 	            end
 	            set_journal_entry(
-					seg_journal, pinfo.number, tmpbuf,
-					st.last_number, nil
+					seg_journal, pinfo.number, tmpbuf, st.last_number, NO_PACKET
 				)
-	            del_status(seg_status, pinfo.src_port, pinfo.dst_port)
 	            if st.byte_count < buflen then
-	                t_pckt:add(capt_comment, "Warning: incorrect count detected, device firmware bug or log corruption suspected")
+	                t_pckt:add(capt_comment, "Warning: incorrect count detected (byte count too small)")
 	            end
+	            del_status(seg_status, pinfo.src, pinfo.dst)
 	        end
 	        return
 		end
