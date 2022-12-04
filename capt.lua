@@ -332,9 +332,10 @@ function capt_proto.dissector(buffer, pinfo, tree) do
 	                return
 	            end
 	        else
-	            if buflen >= 5 then
+				local minlen = 8
+				if buflen >= minlen then
 	                -- check for, and save, device names from IEEE 1284 IDs
-	                if buffer2(0, 5):string() == "\00FMFG" then
+	                if string.match(buffer2(0, minlen):string(), "MFG") then
 	                    tmp = buffer2(1):string()
 	                    tmp = string.match(tmp, "MDL%:(.-)%;")
 	                    dev_journal[get_device_id(tostring(pinfo.src))] = tmp
