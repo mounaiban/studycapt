@@ -108,8 +108,9 @@ TYPE_IS_CONTROL = 0x02
 -- u is the Wireshark USB device number, without the endpoint number.
 -- e.g. 1.2.0 => 1.2
 --
--- dev_journal[u] => (string)
---
+-- dev_journal[u] => [s, n]
+-- s    -- name of the device from IEEE 1284 identifier string
+-- n    -- packet number where IEEE 1284 ID was found
 --
 -- TODO: Use formal OOP with classes with journals?
 
@@ -134,17 +135,17 @@ local function get_status(sobj, src, dst) do
 	return sobj[comm_id(src, dst)]
 end end
 
-local function get_device_string(luobj, devid) do
+local function get_device_info(luobj, devid) do
 	-- Returns: s, b
-	-- s => device name string from lookup 'luobj'
+	-- s => device info from lookup 'luobj'
 	-- b => true if name found in journal (not placeholder)
 	if luobj[devid] then return luobj[devid], true
-	else return string.format(PLACEHOLDER_FMT, devid), false
+	else return {string.format(PLACEHOLDER_FMT, devid), NO_PACKET}, false
 	end
 end end
 
-local function set_device_name(luobj, addrstr, name) do
-	luobj[addrstr] = name
+local function set_device_info(luobj, dev_id, name, p_num) do
+	luobj[dev_id] = {name, p_num}
 end end
 
 local function set_status(sobj, src, dst, last_n, header_n, byte_count) do
@@ -239,6 +240,7 @@ local capt_cmd = ProtoField.uint16("capt.cmd","Command", base.HEX, opcodes)
 local dump = ProtoField.new("Dump", "capt.packet_dump", ftypes.BYTES)
 local pkt_size = ProtoField.uint16("capt.packet_size", "Packet Size", base.DEC)
 local payload = ProtoField.new("Payload", "capt.param_dump", ftypes.BYTES)
+local ref_packet = ProtoField.framenum("ref_packet", "Ref to Packet")
 	-- PROTIP: ProtoField.new puts name argument first
 capt_proto.fields = {
 	capt_comment,
@@ -250,6 +252,7 @@ capt_proto.fields = {
 	dump,
 	pkt_size,
 	payload,
+	ref_packet,
 }
 
 local function capt_opcode_type(opcode) do
@@ -274,14 +277,25 @@ function capt_proto.dissector(buffer, pinfo, tree) do
 	local size
 
 	-- TODO: consolidate common packet info to dissector dispatch
-	-- TODO: cite packet number containing pretty print info
 	tree:add(capt_comment, REMINDER_CLEAR_JOURNAL)
-	local sdev, st = get_device_string(dev_journal, get_device_id(tostring(pinfo.src)))
-	local ddev, dt = get_device_string(dev_journal, get_device_id(tostring(pinfo.dst)))
-	tree:add(capt_src_dev_name, sdev)
-	-- if st then pinfo.cols.src_res = sdev end -- NOTE: doesn't work on WS 2.66
-	tree:add(capt_dst_dev_name, ddev)
-	-- if dt then pinfo.cols.dst_res = ddev end -- NOTE: doesn't work
+	local smdl, st = get_device_info(
+		dev_journal, get_device_id(tostring(pinfo.src))
+	)
+	local sd_tree = tree:add(capt_src_dev_name, smdl[1])
+	if st then
+	    sd_tree:add(ref_packet, smdl[2])
+	    pinfo.cols.src = smdl[1] -- NOTE: doesn't work on WS 2.66
+	end
+	local dmdl, dt = get_device_info(
+		dev_journal, get_device_id(tostring(pinfo.dst))
+	)
+	local dd_tree = tree:add(capt_dst_dev_name, dmdl[1])
+	if dt then
+	    dd_tree:add(ref_packet, dmdl[2])
+	    pinfo.cols.dst = dmdl[1] -- NOTE: doesn't work on WS 2.66
+	end
+	-- PROTIP: first index of numerically-indexed Lua tables is 1, not 0
+
 	if buflen >= 4 then
 		br_opcode = buffer2(0, 2)
 		opcode = br_opcode:le_uint()
@@ -338,7 +352,7 @@ function capt_proto.dissector(buffer, pinfo, tree) do
 	                if string.match(buffer2(0, minlen):string(), "MFG") then
 	                    tmp = buffer2(1):string()
 	                    tmp = string.match(tmp, "MDL%:(.-)%;")
-	                    dev_journal[get_device_id(tostring(pinfo.src))] = tmp
+	                    set_device_info(dev_journal, get_device_id(tostring(pinfo.src)), tmp, pinfo.number)
 	                end
 	            end
 	        end
@@ -686,7 +700,7 @@ local function init_journal()
 	seg_status = {}
 	seg_journal = {}
 	dev_journal = {}
-	dev_journal[HOST_DEV] = HOST_DEV
+	dev_journal[HOST_DEV] = {HOST_DEV, NO_PACKET}
 	if gui_enabled() then reload_packets() end
 end
 
