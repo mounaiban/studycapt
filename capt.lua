@@ -43,7 +43,7 @@
 HEADER_SIZE = 6
 HOST_PORT = 0xFFFFFFFF  -- USB host in pinfo.dst_port or pinfo.src_port
 HOST_DEV = "host"
-NO_PACKET = -1
+NO_PACKET = 0
 PLACEHOLDER_FMT = "CAPT Device at %s"
 REMINDER_CLEAR_JOURNAL = "If this looks incorrect, try Tools -> Clear CAPT Segment Journal and Reload in the menu if in the GUI."
 TYPE_NOT_OPCODE = 0x0
