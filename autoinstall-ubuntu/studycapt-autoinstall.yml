@@ -1,0 +1,97 @@
+#cloud-config
+#
+# Studycapt Ubuntu VM Autoinstall File
+#
+# Adapted from /var/log/installer/autoinstall-user-data
+# Edited by Moses Chong, 2024-08-25
+# License: CC0, https://creativecommons.org/publicdomain/zero/1.0/
+#
+# This autoconfig helps set up an Ubuntu VM for analysing
+# the CAPT protocol and associated data formats.
+#
+# Hosting the Autoinstall file via Python HTTP Server
+# ===================================================
+# Running this command in a directory containing an
+# autoinstall file:
+#
+# python3 -m http.server --bind ::1 9001
+#
+# When prompted by the Ubuntu installer, use the whole
+# URL with file path: http://[::1]:9001/studycapt-autoinstall.yml
+# Alternatively, try using IPv4 localhost 127.0.0.1 instead of ::1
+# if you run into IPv6 compatibility issues.
+#
+# It might be worth checking out: https://superuser.com/questions/1669407
+#
+# Security Advice and Password
+# ============================
+# Password is HP_IS_BETTER, please change this even if
+# you are running in a VM. If a VM is compromised via the
+# internet using this password, it may affect the host
+# system by way of shared directories.
+#
+# TODO: FINAL TEST
+#
+# See the autoinstall documentation at:
+# https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-reference.html
+autoinstall:
+  apt:
+    disable_components: []
+    fallback: offline-install
+    geoip: true
+    mirror-selection:
+      primary:
+      - country-mirror
+      - arches: &id001
+        - amd64
+        - i386
+        uri: http://archive.ubuntu.com/ubuntu/
+    preserve_sources_list: false
+    security:
+    - arches: *id001
+      uri: http://security.ubuntu.com/ubuntu/
+  codecs:
+    install: false
+  drivers:
+    install: false
+  debconf-selections:
+    wireshark-common wireshark-common/install-setuid boolean true
+  identity:
+    hostname: studycapt-vm
+    password: $6$rKQlE8C9hPMnE3vK$GXt82Y7tGFMLzQsipllGuVKbDHdUZ9kEwD2eUJCP1aFjBzBGCarzFEU1/LxzcOz8.rMKVekM2st7q7naujAyp1
+    realname: studycapt
+    username: capthacker
+  interactive-sections:
+    - storage
+  kernel:
+    package: linux-generic
+  keyboard:
+    layout: us
+    toggle: null
+    variant: ''
+  late-commands:
+    - curtin in-target -- dpkg --add-architecture i386
+  locale: en_US.UTF-8
+  oem:
+    install: auto
+  packages:
+    - automake
+    - evince
+    - build-essential
+    - gimp
+    - git
+    - inkscape
+    - libcups2-dev
+    - libreoffice
+    - vim-gtk3
+    - wireshark
+  source:
+    id: xubuntu-desktop-minimal
+    search_drivers: false
+  ssh:
+    allow-pw: false
+    authorized-keys: []
+    install-server: false
+  timezone: UTC
+  updates: security
+  version: 1
