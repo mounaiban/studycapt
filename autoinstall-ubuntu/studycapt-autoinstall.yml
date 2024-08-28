@@ -73,7 +73,7 @@ autoinstall:
     - curtin in-target -- dpkg --add-architecture i386
   locale: en_US.UTF-8
   oem:
-    install: auto
+    install: false
   packages:
     - automake
     - evince
