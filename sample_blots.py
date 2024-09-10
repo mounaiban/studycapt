@@ -38,6 +38,7 @@ from collections import OrderedDict
 from itertools import chain
 from os.path import expanduser
 from sys import argv, stdout
+from blob_pic import BlobPic
 
 TITLE = "Studycapt RLE Study"
 HEADER_FMT = "{}\n# Studycapt RLE Study\n# {}\n{} {}\n"
@@ -362,6 +363,12 @@ def _get_p4_raster(w, h, fn, comment=''):
     body = chain.from_iterable(r for r in rows)
     raster = chain(header, body)
     return (x for x in raster)
+
+def _get_bmp_raster(w, h, fn, **kwargs):
+    # comments are not supported
+    rows = (_p4_get_row(w, fn(x, w), P4_MIN_VALUE) for x in range(0,w*h, w))
+    body = bytes(chain.from_iterable(r for r in rows))
+    return (x for x in BlobPic(w, h, body, bpp=1).bmp())
 
 def _p4_get_row(w, v, t):
     """
