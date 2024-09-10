@@ -351,7 +351,7 @@ def _get_p5_raster(w, h, fn, comment=''):
 def _get_p4_raster(w, h, fn, comment=''):
     """
     Generate PBM P4 raster w pixels wide, h pixels tall, using pixel
-    function fn. Return the reaster as an iter.
+    function fn. Return the raster as an iter.
 
     Any pixel of value 127 and above will be set.
 
