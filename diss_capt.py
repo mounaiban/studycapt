@@ -30,7 +30,7 @@ along with this software. If not, see:
 from itertools import chain
 from json import JSONEncoder
 from re import finditer
-from docs.a1a1 import CAPT_INFO_DB
+from docs.a1a1 import DB
 
 # Utilities: Formatters
 
@@ -77,8 +77,9 @@ def bytes_to_hex(b):
 # may be incorrect. These fields are indicated by a question mark
 # (?) in the field's long name.
 
-# format: (FIELD_NAME, OFFSET, SIZE, FUNCTION, FIELD_LONG_NAME)
-# function args: f(x); x is all data in the field
+# format: (FIELD_NAME, OFFSET, SIZE, FUNCTION, FIELD_LONG_NAME, NOTES)
+# the FUNCTION prepares the data in the field for presentation in docs
+# function args: f(x); x is the data in the field
 FIELDS_A1A1 = (
     ('OPCODE', 0, 2, le_16_hex, 'Opcode'),
     ('CAPT_REPLY_SIZE', 2, 2, le_16, 'Reply Size'),
@@ -197,7 +198,7 @@ def db_to_md_table(db, op):
     md_full_rows = ((chain((x[0],), (x[1],), x[2])) for x in (zip(md_col_offsets, md_col_labels, md_cols)))
     md_row_heads_str = sep.join(x.upper() for x in db.keys())
     md_row_strs = (sep.join(x) for x in md_full_rows)
-    out = ''.join((out, 'Offset', sep, 'Variable', sep, md_row_heads_str, '\n', '|{}'.format('--|'*(len(CAPT_INFO_DB)+2))))
+    out = ''.join((out, 'Offset', sep, 'Variable', sep, md_row_heads_str, '\n', '|{}'.format('--|'*(len(DB)+2))))
     all_row_strs = '\n'.join(md_row_strs)
     return '\n'.join((out, all_row_strs))
 
