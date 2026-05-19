@@ -27,7 +27,7 @@ along with this software. If not, see:
 
 """
 
-from itertools import chain
+from itertools import chain, count
 from json import JSONEncoder
 from re import finditer
 from docs.a1a1 import DB
@@ -87,15 +87,23 @@ FIELDS_A1A1 = (
     ('CAPT_PRODUCT_ID', 6, 2, le_16_hex, 'Product ID(?)'),
     ('CAPT_FIRMWARE_VERSION', 8, 2, le_16_hex, 'Firmware Version(?)'),
     ('CAPT_DEVICE_BUFFER_SIZE', 10, 2, le_16, 'Buffer Size'),
-    ('CAPT_DEVICE_BUFFERS', 12, 2, le_16, 'Buffers'),
+    (
+        'CAPT_DEVICE_BUFFERS', 12, 2, le_16,
+        'Buffers',
+        'Buffer size appears to be 64KiB for CAPT 1.0, 32KiB for CAPT 2.x & 3.0'
+    ),
     ('CAPT_INFO_UNKNOWN_B', 14, 2, le_16_hex, 'Unknown B'),
     ('CAPT_INFO_UNKNOWN_C', 16, 2, le_16_hex, 'Unknown C'),
     ('CAPT_INFO_UNKNOWN_D', 18, 2, le_16_hex, 'Unknown D'),
-    # CAPT 2.0 and later
-    ('CAPT_THROUGHPUT', 20, 2, le_16, 'Max. Speed (pages/hour)'),
+    # CAPT 2.1 and later
+    ('CAPT_THROUGHPUT', 20, 2, le_16, 'Max. B&W Speed (pages/hour)'),
     ('CAPT_INFO_UNKNOWN_E', 22, 2, le_16_hex, 'Unknown E'),
     ('CAPT_MPT_MAX_W', 24, 2, le_16, 'MP Tray Max. Width (x0.1 mm)'),
-    ('CAPT_DUPLEX_MAX_W', 26, 2, le_16, 'Duplex Max. Width (x0.1 mm)'),
+    (
+        'CAPT_DUPLEX_MAX_W', 26, 2, le_16,
+        'Duplex Max. Width (x0.1 mm)',
+        'Inferred from section F-21 of LBP72000C manual, largest supported size was US Legal'
+    ),
     ('CAPT_MPT_MAX_H', 28, 2, le_16, 'MP Tray Max. Length (x0.1 mm)'),
     ('CAPT_INFO_UNKNOWN_F', 30, 2, le_16_hex, 'Unknown F'),
     ('CAPT_DUPLEX_MAX_H', 32, 2, le_16, 'Duplex Max. Length (x0.1 mm)'),
@@ -118,31 +126,36 @@ FIELDS_A1A1 = (
     ),
     (
         'CAPT_NOPRINT_RIGHT', 47, 1, le_16,
-        'Right Non-Printable Margin Thickness (x0.1mm)'
-    ), # Maybe swapped with CAPT_NOPRINT_LEFT?
+        'Right Non-Printable Margin Thickness (x0.1mm)',
+        'All known devices have identical left and right margins and there is not enough information to tell if this field is correctly the left or right margin.'
+    ),
     ('CAPT_RESOLUTION_X', 48, 2, le_16, 'Horizontal Resolution (dpi)'),
-    ('CAPT_RESOLUTION_Y', 50, 2, le_16, 'Vertical Resolution (dpi)'),
-       # Maybe swapped with CAPT_RESOLUTION_X?
+    (
+        'CAPT_RESOLUTION_Y', 50, 2, le_16,
+        'Vertical Resolution (dpi)',
+        'All known devices have identical X and Y resolution; there is not enough information to tell if this field is correctly the X or Y resolution.'
+    ),
     ('CAPT_VERSION', 52, 1, le_16, 'CAPT Protocol Version ID B'),
-    ('CAPT_PRINT_ENGINE_TYPE', 53, 2, le_16_hex, 'Print Engine Prototype(?)'),
+    (
+        'CAPT_PRINT_ENGINE_TYPE', 53, 2, le_16_hex,
+        'Print Engine Type(?)',
+        'May also be a reference to service manuals for a device. Multiple devices with common components have been documented within a single service manual.'
+    ),
     ('CAPT_UNKNOWN_I', 55, 1, le_16_hex, 'Unknown I'),
     # CAPT 3.0 and later
     ('CAPT_3_UNKNOWN_J', 56, 2, le_16_hex, 'Unknown J'),
     ('CAPT_3_UNKNOWN_K', 58, 2, le_16_hex, 'Unknown K'),
     (
-        'CAPT_3_THROUGHPUT_CMYK', 60, 2, le_16_hex,
-        'Max Color Speed(?) (pages/hour)'
+        'CAPT_THROUGHPUT_CMYK', 60, 2, le_16_hex,
+        'Max Color Speed (pages/hour)',
+        'Some CMYK devices use a carousel to swap between different coloured cartridges instead of having all four of them in constant contact with the transfer belt. This is intended to save space but comes at the cost of slower full-colour printing.'
     ),
     ('CAPT_3_UNKNOWN_M', 62, 2, le_16_hex, 'Unknown M'),
-    #
-    # TODO: Bytes 60, 61 could be CMYK/Colour Print Speed, please confirm.
-    # Colour speed may be considerably slower on some devices.
-    # For example, LBP5200 has only 4ppm/240pph maximum in CMYK, a
-    # fraction of the 19ppm/1140pph in black-only mode.
 )
 
-# Utilities: DB Exporters
+# Utilities
 
+# A1A1 Database export functions
 # Refer to docs/a1a1.py for a description of the database
 # format (it's very simple, we promise!).
 
@@ -150,7 +163,7 @@ def offset_column_iter(spec, n=None):
     """
     Return an iter of the start and end byte offsets for
     each field in a field specification. The iter is
-    intended for use with table exports.
+    intended for use with Markdown table exports.
 
     Check the field specs above for a description of the
     format used.
@@ -172,6 +185,19 @@ def offset_column_iter(spec, n=None):
         i += 1
         if i >= n: return
 
+def md_field_label(field, counter_iter):
+    """
+    Return markdown field labels, include footnote links on fields
+    with notes. The counter_iter is intended to be an itertools.count
+    object to number
+    """
+    if(len(field) > 5): return '{}[^{}]'.format(field[4], next(counter_iter))
+    else: return field[4]
+
+def md_footnote(field, counter_iter):
+    """Return markdown footnotes"""
+    return ('[^{}]:{}\n'.format(next(counter_iter), field[5]))
+
 def db_to_md_table(db, op):
     """
     Create a markdown table from a packet database where the
@@ -183,24 +209,34 @@ def db_to_md_table(db, op):
 
     * op: opcode as an int
 
+    Example
+    =======
+    # This example writes a Markdown table of the A1A1 responses
+    # from different devices in docs.a1a1.DB
+    with(f as open('issue-38.txt', mode='w')):
+        write(db_to_md_table(DB, 0xa1a1))
+
     """
     out = ''
     pad = '--'
     sep = '|'
+    comment_count = count()
+    foot_count = count()
     fields = CAPTPacketExporter.FIELDS[op]
     md_rows = (
         CAPTPacketExporter(x).value_column_str_iter(fn=le_16_str, pad_value=pad)
         for x in db.values() if le_16(x[0:2]) == op
     )
     md_cols = zip(*md_rows)
-    md_col_labels = (x[4] for x in fields)
+    md_col_labels = (md_field_label(x, comment_count) for x in fields)
     md_col_offsets = offset_column_iter(fields)
     md_full_rows = ((chain((x[0],), (x[1],), x[2])) for x in (zip(md_col_offsets, md_col_labels, md_cols)))
     md_row_heads_str = sep.join(x.upper() for x in db.keys())
     md_row_strs = (sep.join(x) for x in md_full_rows)
     out = ''.join((out, 'Offset', sep, 'Variable', sep, md_row_heads_str, '\n', '|{}'.format('--|'*(len(DB)+2))))
     all_row_strs = '\n'.join(md_row_strs)
-    return '\n'.join((out, all_row_strs))
+    comments = ''.join(md_footnote(x, foot_count) for x in fields if len(x) > 5)
+    return '\n'.join((out, all_row_strs, comments))
 
 def db_to_json(db, indent=2):
     keys = db.keys()
@@ -209,7 +245,7 @@ def db_to_json(db, indent=2):
     outer_dict = dict(zip(keys, inner_dicts))
     return je.encode(outer_dict)
 
-# CAPTInfoExporter Class
+# CAPTPacketExporter Class
 
 class CAPTPacketExporter:
     """
