@@ -10,7 +10,7 @@ independent machine-readable formats.
 Authors
 =======
 Written by Moses Chong
-First Edition released 2022/12/12
+Second Edition released 2026/05/20
 
 License
 =======
@@ -83,16 +83,24 @@ def bytes_to_hex(b):
 FIELDS_A1A1 = (
     ('OPCODE', 0, 2, le_16_hex, 'Opcode'),
     ('CAPT_REPLY_SIZE', 2, 2, le_16, 'Reply Size'),
-    ('CAPT_INFO_UNKNOWN_A', 4, 2, le_16_hex, 'CAPT Version ID A(?)'),
-    ('CAPT_PRODUCT_ID', 6, 2, le_16_hex, 'Product ID(?)'),
-    ('CAPT_FIRMWARE_VERSION', 8, 2, le_16_hex, 'Firmware Version(?)'),
-    ('CAPT_DEVICE_BUFFER_SIZE', 10, 2, le_16, 'Buffer Size'),
     (
-        'CAPT_DEVICE_BUFFERS', 12, 2, le_16,
-        'Buffers',
-        'Buffer size appears to be 64KiB for CAPT 1.0, 32KiB for CAPT 2.x & 3.0'
+        'CAPT_A1A1_FORMAT_VERSION', 4, 2, le_16_hex,'CAPT Version Identifier A',
+        '0x0300 for CAPT 1.0 & 2.0; 0x0B00 for CAPT 2.1 and later'
     ),
-    ('CAPT_INFO_UNKNOWN_B', 14, 2, le_16_hex, 'Unknown B'),
+    (
+        'CAPT_PRODUCT_ID', 6, 2, le_16_hex, 'Product ID(?)',
+        'Devices with similar model numbers and features have similar designations.'
+    ),
+    ('CAPT_FIRMWARE_VERSION', 8, 2, le_16_hex, 'Firmware Version(?)'),
+    (
+        'CAPT_DEVICE_BUFFER_SIZE', 10, 2, le_16, 'Buffer Size (bytes)',
+        'Buffer Size multiplied by Buffers seem to be twice as large as device memory on devices using CAPT 2.0 or later'
+    ),
+    ('CAPT_DEVICE_BUFFERS', 12, 2, le_16, 'Buffers'),
+    (
+        'CAPT_INFO_UNKNOWN_B', 14, 2, le_16_hex, 'Unknown B',
+        'Suspected to indicate support for colour printing, network, additional paper trays & two-sided printing. Format might have changed as of CAPT 2.1'
+    ),
     ('CAPT_INFO_UNKNOWN_C', 16, 2, le_16_hex, 'Unknown C'),
     ('CAPT_INFO_UNKNOWN_D', 18, 2, le_16_hex, 'Unknown D'),
     # CAPT 2.1 and later
@@ -100,8 +108,7 @@ FIELDS_A1A1 = (
     ('CAPT_INFO_UNKNOWN_E', 22, 2, le_16_hex, 'Unknown E'),
     ('CAPT_MPT_MAX_W', 24, 2, le_16, 'MP Tray Max. Width (x0.1 mm)'),
     (
-        'CAPT_DUPLEX_MAX_W', 26, 2, le_16,
-        'Duplex Max. Width (x0.1 mm)',
+        'CAPT_DUPLEX_MAX_W', 26, 2, le_16, 'Duplex Max. Width (x0.1 mm)',
         'Inferred from section F-21 of LBP72000C manual, largest supported size was US Legal'
     ),
     ('CAPT_MPT_MAX_H', 28, 2, le_16, 'MP Tray Max. Length (x0.1 mm)'),
@@ -131,14 +138,12 @@ FIELDS_A1A1 = (
     ),
     ('CAPT_RESOLUTION_X', 48, 2, le_16, 'Horizontal Resolution (dpi)'),
     (
-        'CAPT_RESOLUTION_Y', 50, 2, le_16,
-        'Vertical Resolution (dpi)',
+        'CAPT_RESOLUTION_Y', 50, 2, le_16, 'Vertical Resolution (dpi)',
         'All known devices have identical X and Y resolution; there is not enough information to tell if this field is correctly the X or Y resolution.'
     ),
-    ('CAPT_VERSION', 52, 1, le_16, 'CAPT Protocol Version ID B'),
+    ('CAPT_PROTOCOL_VERSION', 52, 1, le_16, 'CAPT Version Identifier B'),
     (
-        'CAPT_PRINT_ENGINE_TYPE', 53, 2, le_16_hex,
-        'Print Engine Type(?)',
+        'CAPT_PRINT_ENGINE_TYPE', 53, 2, le_16_hex, 'Print Engine Type(?)',
         'May also be a reference to service manuals for a device. Multiple devices with common components have been documented within a single service manual.'
     ),
     ('CAPT_UNKNOWN_I', 55, 1, le_16_hex, 'Unknown I'),
@@ -146,8 +151,7 @@ FIELDS_A1A1 = (
     ('CAPT_3_UNKNOWN_J', 56, 2, le_16_hex, 'Unknown J'),
     ('CAPT_3_UNKNOWN_K', 58, 2, le_16_hex, 'Unknown K'),
     (
-        'CAPT_THROUGHPUT_CMYK', 60, 2, le_16_hex,
-        'Max Color Speed (pages/hour)',
+        'CAPT_THROUGHPUT_CMYK', 60, 2, le_16_hex,'Max Color Speed (pages/hour)',
         'Some CMYK devices use a carousel to swap between different coloured cartridges instead of having all four of them in constant contact with the transfer belt. This is intended to save space but comes at the cost of slower full-colour printing.'
     ),
     ('CAPT_3_UNKNOWN_M', 62, 2, le_16_hex, 'Unknown M'),
