@@ -152,6 +152,41 @@ with open('captfile.capt', mode='rb') as cf:
     image_bytes = bytes(decoder.decode(x for x in cf.read()))
 ```
 
+### [usb_a1a1.c](usb_a1a1.c) (USB CAPT A1A1 Readout Tool)
+A command line program that scans the system for connected and active Canon
+CAPT printers, issues each CAPT device with the device information command
+(opcode `0xA1A1`), and prints a hex dump of the responses in the console/terminal.
+
+This tool works on any system that has a working copy of libusb 1.0 and access
+to external USB ports; CAPT drivers are not required.
+
+To compile on Ubuntu using GCC, make sure the libusb development package is
+installed (e.g. `libusb-1.0-0-dev`), then run:
+
+```sh
+gcc -Wall -o usb_a1a1 usb_a1a1.c -I/usr/include/libusb-1.0 -lusb-1.0
+```
+
+This command should work on most GNU/Linux or Unix systems with `pkgconf`:
+
+```sh
+gcc -Wall -o usb_a1a1 usb_a1a1.c $(pkgconf --cflags --libs libusb-1.0)
+```
+
+When your printer is connected and switched on, run
+
+```sh
+./usb_a1a1
+```
+
+You should get a response like:
+
+```sh
+A1A1 responses from USB CAPT printers
+=====================================
+LBP3000: a1 a1 38 00 00 0b 30 2a 02 00 f0 ff 40 00 04 00 40 00 01 00 48 03 00 00 6f 08 00 00 e4 0d 00 00 00 00 00 00 fa 02 00 00 f6 04 00 00 28 3c 32 32 58 02 58 02 15 03 02 00 
+```
+
 Have fun!
 
 ## Licensing
