@@ -83,26 +83,29 @@ def bytes_to_hex(b):
 FIELDS_A1A1 = (
     ('OPCODE', 0, 2, le_16_hex, 'Opcode'),
     ('CAPT_REPLY_SIZE', 2, 2, le_16, 'Reply Size'),
+    ('UNKNOWN_A', 4, 1, le_16_hex,'Unknown A'),
     (
-        'CAPT_A1A1_FORMAT_VERSION', 4, 2, le_16_hex,'CAPT Version Identifier A',
-        '0x0300 for CAPT 1.0 & 2.0; 0x0B00 for CAPT 2.1 and later'
+        'CAPT_INFO_FORMAT_VERSION', 5, 1, le_16_hex,'CAPT Version Identifier A',
+        '0x03 for CAPT 1.0 & 2.0; 0x0B for CAPT 2.1 and later'
     ),
     (
         'CAPT_PRODUCT_ID', 6, 2, le_16_hex, 'Product ID(?)',
         'Devices with similar model numbers and features have similar designations.'
     ),
-    ('CAPT_FIRMWARE_VERSION', 8, 2, le_16_hex, 'Firmware Version(?)'),
+    ('CAPT_FIRMWARE_VERSION', 8, 2, le_16_hex, 'Firmware Version(?)', 'Based on comparing two LBP3000 printers with near-identical responses except for different values in this field'),
+    ('CAPT_RASTER_BLOCK_SIZE', 10, 2, le_16, 'Print Data Block Size (bytes)'),
     (
-        'CAPT_DEVICE_BUFFER_SIZE', 10, 2, le_16, 'Buffer Size (bytes)',
-        'Buffer Size multiplied by Buffers seem to be twice as large as device memory on devices using CAPT 2.0 or later'
+        'CAPT_DEVICE_BUFFERS', 12, 2, le_16, 'Buffers',
+        'Buffers are 32KB each; multiply by 32767 to get printer memory size'
     ),
-    ('CAPT_DEVICE_BUFFERS', 12, 2, le_16, 'Buffers'),
     (
-        'CAPT_INFO_UNKNOWN_B', 14, 2, le_16_hex, 'Unknown B',
+        'CAPT_INFO_UNKNOWN_B', 14, 1, le_16_hex, 'Unknown B',
         'Suspected to indicate support for colour printing, network, additional paper trays & two-sided printing. Format might have changed as of CAPT 2.1'
     ),
+    ('CAPT_INFO_UNKNOWN_B2', 15, 1, le_16_hex, 'Unknown B2'),
     ('CAPT_INFO_UNKNOWN_C', 16, 2, le_16_hex, 'Unknown C'),
-    ('CAPT_INFO_UNKNOWN_D', 18, 2, le_16_hex, 'Unknown D'),
+    ('CAPT_INFO_UNKNOWN_D', 18, 1, le_16_hex, 'Unknown D'),
+    ('CAPT_INFO_UNKNOWN_D2', 19, 1, le_16_hex, 'Unknown D'),
     # CAPT 2.1 and later
     ('CAPT_THROUGHPUT', 20, 2, le_16, 'Max. B&W Speed (pages/hour)'),
     ('CAPT_INFO_UNKNOWN_E', 22, 2, le_16_hex, 'Unknown E'),
