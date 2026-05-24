@@ -95,7 +95,8 @@ FIELDS_A1A1 = (
         """Devices with similar model numbers and features
         have similar designations."""
     ),
-    ('CAPT_FIRMWARE_VERSION', 8, 2, le_16_hex, 'Firmware Version(?)',
+    ('CAPT_FIRMWARE_VERSION', 8, 1, le_16_hex, 'Major Firmware Version(?)',),
+    ('CAPT_FIRMWARE_VERSION_MIN', 9, 1, le_16_hex, 'Minor Firmware Version(?)',
         """Based on comparing two LBP3000 printers with near-identical
         responses except for different values in this field"""
     ),
