@@ -194,6 +194,14 @@ class RasterDumpTests(TestCase):
         # full rasters already covered in test_init_with_pad() and
         # test_get_raster()
 
+class RasterDumpBGR888Tests(TestCase):
+    def test_put_pixels(self):
+        raster = rasterdump.RasterDumpBGR888(w=2, h=2)
+        raster.put_pixels(0xFF, 0x00, 0x80, count=2)
+        out = raster.get_raster()
+        expected = b'\x80\x00\xFF\x80\x00\xFF\x00\x00\x00\x00\x00\x00'
+        self.assertEqual(out, expected)
+
 class RasterDumpRGB888Tests(TestCase):
     # RasterDump 24BPP Test Cases
 

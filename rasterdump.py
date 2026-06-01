@@ -180,6 +180,17 @@ class RasterDumpRGB888(RasterDump):
         inp = bytes((r,g,b)*count)
         self.put_raster_bytes(inp)
 
+class RasterDumpBGR888(RasterDumpRGB888):
+    """
+    Raster dump for 24-bit RGB full colour images
+    specially for litte-endian data formats, which
+    may flip the colour order to BGR.
+
+    Pixel format is B8b+G8b+R8b.
+    """
+    def put_pixels(self, r, g, b, count=1):
+        self.put_raster_bytes(bytes((b,g,r)*count))
+
 # Raster dump writer classes
 
 class RasterWriter:
@@ -382,7 +393,8 @@ class PBMWriter(RasterWriter):
 
 # Test Rasters and Writers
 rastrgb = RasterDumpRGB888(17,17,pad=b'\xFF\x00\x00\x00\xFF\x00\x00\x00\xFF')
-bmprgb = BMPWriter(rastrgb, 'test-rgb.bmp', overwrite=True)
+rastbgr = RasterDumpBGR888(17,17,pad=b'\x00\x00\xFF\x00\xFF\x00\xFF\x00\x00')
+bmpbgr = BMPWriter(rastbgr, 'test-rgb.bmp', overwrite=True)
 pbmrgb = PBMWriter(rastrgb, 'test-rgb.pbm', overwrite=True)
 
 rast = RasterDump(128,128,pad=b'\xFF')
