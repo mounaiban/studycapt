@@ -442,4 +442,4 @@ pbmrgb = PBMWriter(rastrgb, 'test-rgb.pbm', overwrite=True)
 
 rast = RasterDump(128,128,pad=b'\xFF')
 bmpwr = BMPWriter(rast, 'test.bmp', overwrite=True)
-pbmwr = BMPWriter(rast, 'test.pbm', overwrite=True)
+pbmwr = PBMWriter(rast, 'test.pbm', overwrite=True)
