@@ -163,6 +163,24 @@ class RasterDump:
             raise ValueError('rasters should have at least 1 bit/px')
         return ceil((self.width * self.bpp)/8)
 
+class RasterDumpGray8(RasterDump):
+    bpp = 8
+    MIN_HEIGHT = 1
+    MIN_WIDTH = 1
+
+    def _raster_size(self):
+        # calc raster size in bytes
+        return self.width * self.height
+
+    def put_pixels(self, v, count=1):
+        # put grey pixels of level v into the raster
+        # v can be between 0 (darkest) and 255 (lightest)
+        if type(v) is not int:
+            raise ValueError('v must be an int')
+        if (v > 255) or (v < 0):
+            raise ValueError('v must be 0 to 255')
+        self.put_raster_bytes(bytes(v)*count)
+
 class RasterDumpRGB888(RasterDump):
     """
     Raster Dump for 24-bit RGB full colour images.
@@ -259,6 +277,16 @@ class BMPWriter(RasterWriter):
     DIB_HEADER_SIZE = 40 # BITMAPINFOHEADER
     BMP_PAD = b'\x00'
 
+    def __init__(
+        self, raster, out_path, overwrite=False,
+        g_hue=0.889, g_min_L=0.25, g_max_L=0.825
+    ):
+        super().__init__(raster,out_path,overwrite)
+        self.gray_hue = g_hue
+        self.gray_min_L = g_min_L
+        self.gray_max_L = g_max_L
+
+
     def _bmp_header(self):
         # prepare combined BMP & DIB header
         off = self.BMP_HEADER_SIZE \
@@ -331,7 +359,7 @@ class BMPWriter(RasterWriter):
         bmprbl = ceil(rbl/4)*4
         return bmprbl - rbl
 
-    def _bmp_monochrome_palette(self, hue=0.889, max_lum=0.825, min_lum=0.425):
+    def _bmp_monochrome_palette(self):
         """
         Generate and return a BMP palette for a greyscale image,
         with the right number of shades to match the bits per
@@ -351,12 +379,13 @@ class BMPWriter(RasterWriter):
         """
         avail_bpp = (1,2,4,8)
         if(self.raster.bpp not in avail_bpp): return b''
-        steps = 2**self.raster.bpp - 1
-        Lmax = ceil(max_lum*256)
-        Lmin = ceil(min_lum*256)
-        Lstep = -(Lmax - Lmin - 1)/steps
-        Lumes = (x/256 for x in range(Lmax, Lmin, ceil(Lstep)))
-        colors = (hls_to_rgb(hue, y, 1.0) for y in Lumes)
+
+        steps = 2**self.raster.bpp
+        maxL = self.gray_max_L
+        minL = self.gray_min_L
+        get_lume = lambda x: (maxL-minL)/steps*x + minL
+        Lumes = (get_lume(x) for x in range(1, 1+steps))
+        colors = (hls_to_rgb(self.gray_hue, y, 1.0) for y in Lumes)
         bgras = ((ceil(255*b), ceil(255*g), ceil(255*r), 255) for r,g,b in colors)
         bs = (bytes(x) for x in bgras) # BGRA is ARGB litle-endian
         return b''.join(bs)
@@ -374,11 +403,21 @@ class PBMWriter(RasterWriter):
     Netpbm file output support
 
     Instructions on creating a writer are in RasterWriter.__init__()
+
+    Note: PBMWriter does not support RasterDumpBGR888 rasters
     """
     HEADER_FORMAT = "{type}\n{w} {h}{maxval}" # HACK: maxval is \n for P4
     # lookups
-    CLASS_TO_TYPE = {RasterDump: "P4", RasterDumpRGB888: "P6"}
-    CLASS_TO_MAXVAL = {RasterDump: "\n", RasterDumpRGB888: "\n255\n"}
+    CLASS_TO_TYPE = {
+        RasterDump:"P4",
+        RasterDumpGray8:"P5",
+        RasterDumpRGB888:"P6"
+    }
+    CLASS_TO_MAXVAL = {
+        RasterDump:"\n",
+        RasterDumpGray8:"\n255\n",
+        RasterDumpRGB888:"\n255\n"
+    }
 
     def _get_blob(self):
         """Prepare content for writing to file"""
@@ -392,6 +431,10 @@ class PBMWriter(RasterWriter):
         return b''.join((bytes(header, 'ascii'), self.raster.get_raster()))
 
 # Test Rasters and Writers
+rastg8 = RasterDumpGray8(256,256)
+bmpg8 = BMPWriter(rastg8, 'test-gray8.bmp', overwrite=True, g_hue=0.125)
+pbmg8 = PBMWriter(rastg8, 'test-gray8.pbm', overwrite=True)
+
 rastrgb = RasterDumpRGB888(17,17,pad=b'\xFF\x00\x00\x00\xFF\x00\x00\x00\xFF')
 rastbgr = RasterDumpBGR888(17,17,pad=b'\x00\x00\xFF\x00\xFF\x00\xFF\x00\x00')
 bmpbgr = BMPWriter(rastbgr, 'test-rgb.bmp', overwrite=True)
