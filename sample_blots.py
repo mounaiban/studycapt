@@ -48,7 +48,6 @@ PIXELS_PER_BYTE = 8
 PX_VALUE_DEFAULT = 127
 P4_MIN_VALUE = 127
 P5_MAX_VALUE = 255
-INDEX_ERROR_FMT = "index {} out of bounds"
 SQUARE_SIZE_DEFAULT = 64
 
 # Plotting & Blotting Functions
@@ -122,8 +121,7 @@ def _mk_fn_all_set(w, h, **kwargs):
     n_px = h * w
 
     def _fn_all_set(i, n):
-        if i + n > n_px: raise ValueError(INDEX_ERROR_FMT.format(i+n))
-        return (v for x in range(n))
+        return (v for x in range(min(n_px-i, n)))
 
     return _fn_all_set
 
@@ -135,13 +133,13 @@ def _mk_fn_checkerboard(w, h, **kwargs):
     gx = kwargs.get('grate_x', w+1)
     gy = kwargs.get('grate_y', h+1)
     mleft = kwargs.get('margin_left', 0)
+    n_px = w * h
     # TODO: mleft currently only erases pixels on the left side of
     # the page. Maybe find a way to move the pattern to the right
     # without changing it?
 
     def _fn_checkerboard(i, n):
-        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
-        for j in range(n):
+        for j in range(min(n_px-i, n)):
             i_px = i+j
             y = i_px // img_w
             x = i_px % img_w
@@ -162,10 +160,10 @@ def _mk_fn_gradient_horizontal(w, h, **kwargs):
     """
     img_w = w
     img_h = h
+    n_px = h * w
 
     def _fn_gradient_horizontal(i, n):
-        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
-        for j in range(n):
+        for j in range(min(n_px-i, n)):
             y = (i+j) // img_h
             yield int(P5_MAX_VALUE * y/img_h)
 
@@ -186,10 +184,10 @@ def _mk_fn_incr_runs_2_pow_x(w, h, **kwargs):
     mt = kwargs.get('margin_top', 20)
     img_w = w
     img_h = h
+    n_px = h * w
 
     def _fn_incr_runs_2_pow_x(i, n):
-        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
-        for x in range(n):
+        for x in range(min(n_px-i, n)):
             i_px = i + x - (mt * img_w)
             b = 2**(i_px.bit_length()-1) # bias
             run_ord = i_px - b # pixel position in run
@@ -202,11 +200,10 @@ def _mk_fn_incr_runs(w, h, **kwargs):
     img_w = w
     img_h = h
     v = kwargs.get('value', PX_VALUE_DEFAULT)
+    n_px = h * w
 
     def _fn_incr_runs(i, n):
-        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
-
-        for x in range(n):
+        for x in range(min(n_px-i, n)):
             i_px = i + x
             y = i_px/img_w
             x = i_px%img_w
@@ -229,10 +226,10 @@ def _mk_fn_circle(w, h, **kwargs):
     n_px = h * w
     half_img_w = w/2
     half_img_h = h/2
+    n_px = h * w
 
     def _fn_circle(i, n):
-        if i + n > n_px: raise ValueError(INDEX_ERROR_FMT.format(i+n))
-        for j in range(n):
+        for j in range(min(n_px-i, n)):
             y = (i+j) // img_w
             x = (i+j) % img_w
             if (x-half_img_w)**2 + (y-half_img_h)**2 <= r_sq and x%gx and y%gy:
@@ -261,10 +258,10 @@ def _mk_fn_half_diagonal(w, h, **kwargs):
     gy = kwargs.get('grate_y', h+1)
     v = kwargs.get('value', PX_VALUE_DEFAULT)
     mleft = kwargs.get('margin_left', 0)
+    n_px = h * w
 
     def _fn_half_diagonal(i, n):
-        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
-        for x in range(n):
+        for x in range(min(n_px-i, n)):
             i_px = i + x
             x = i_px % img_w
             y = i_px // img_w
@@ -294,10 +291,10 @@ def _mk_fn_half_horizontal(w, h, **kwargs):
     img_w = w
     img_h = h
     v = kwargs.get('value', PX_VALUE_DEFAULT)
+    n_px = h * w
 
     def _fn_half_horizontal(i, n):
-        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
-        for x in range(n):
+        for x in range(min(n_px-i, n)):
             i_px = i + x
             if i_px/img_w >= img_h//2: yield v
             else: yield 0x00
@@ -309,10 +306,10 @@ def _mk_fn_mirrored_incr_runs(w, h, **kwargs):
     img_h = h
     half_img_h = h//2
     v = kwargs.get('value', PX_VALUE_DEFAULT)
+    n_px = h * w
 
     def _fn_mirrored_incr_runs(i, n):
-        if i + n > img_w * img_h: raise ValueError(INDEX_ERROR_FMT.format(i+n))
-        for x in range(n):
+        for x in range(min(n_px-i, n)):
             i_px = i + x
             x = i_px % img_w
             y = i_px // img_w
