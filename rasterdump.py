@@ -406,27 +406,27 @@ class PBMWriter(RasterWriter):
 
     Note: PBMWriter does not support RasterDumpBGR888 rasters
     """
-    HEADER_FORMAT = "{type}\n{w} {h}{maxval}" # HACK: maxval is \n for P4
+    HEADER_FORMAT = "{rtype}\n{w} {h}{maxval}" # HACK: maxval is \n for P4
     # lookups
-    CLASS_TO_TYPE = {
-        RasterDump:"P4",
-        RasterDumpGray8:"P5",
-        RasterDumpRGB888:"P6"
-    }
-    CLASS_TO_MAXVAL = {
-        RasterDump:"\n",
-        RasterDumpGray8:"\n255\n",
-        RasterDumpRGB888:"\n255\n"
-    }
+    CLASS_TO_CONFIG = {
+        RasterDump: ("P4", "\n"),
+        RasterDumpGray8: ("P5", "\n255\n"),
+        RasterDumpRGB888: ("P6", "\n255\n"),
+    } # format: (magic, maxval)
 
     def _get_blob(self):
         """Prepare content for writing to file"""
         cls = type(self.raster)
+        clsbase = cls.__base__
+        config = (
+            self.CLASS_TO_CONFIG.get(cls)
+            or self.CLASS_TO_CONFIG.get(clsbase)
+        )
         header = self.HEADER_FORMAT.format(
-            type = self.CLASS_TO_TYPE[cls],
+            rtype = config[0],
             w = self.raster.width,
             h = self.raster.height,
-            maxval = self.CLASS_TO_MAXVAL[cls]
+            maxval = config[1]
         )
         return b''.join((bytes(header, 'ascii'), self.raster.get_raster()))
 
