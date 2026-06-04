@@ -35,8 +35,10 @@ late-1990s Canon laser printers.
 #
 from argparse import ArgumentParser
 from collections import OrderedDict
-from itertools import chain
+from itertools import accumulate, chain
+from math import ceil
 from os.path import expanduser
+from rasterdump import RasterDump, RasterDumpGray8, PBMWriter
 from sys import argv, stdout
 from blob_pic import BlobPic
 
@@ -392,6 +394,86 @@ def _p4_get_row(w, v, t):
             mask = 0x80
             # See: https://docs.python.org/3/tutorial/classes.html#generators
     if i%8: yield out # flush out the last byte of the row
+
+# RasterPlot classes
+
+class RasterPlot(RasterDump):
+    """
+    Raster dump for rendering plotting & blot functions to a
+    1-bit bi-level image.
+
+    RasterPlot uses RasterDump's pad pattern attribute and is
+    therefore intended for use with an empty raster buffer.
+    Please do not use the put_pixel_bytes() method with
+    this class.
+    """
+    def __init__(self, w, h, fn):
+        super().__init__(w, h)
+        self.fn = fn
+        self.threshold = 127
+        self.pad = chain.from_iterable(
+            (self._fill_row(i) for i in range(self.height))
+        )
+
+    def _fill_pre_byte(self, v, i, L):
+        #  returns 2**(L-i) if v is equal to or over
+        #  the threshold, and zero if it not.
+        if v >= self.threshold: return 2**(L-i)
+        else: return 0
+
+    def _fill_byte(self, vs):
+        """
+        Condenses a run of eight 1-bit pixels into a single byte.
+
+        This is done by first replacing all values in a tuple of
+        ints that fall on or above a threshold (self.threshold)
+        with a power-of-two value based on the value's position
+        in the tuple, while zeroing out the values that fall
+        below this threshold.
+
+        The tuple is finally reduced into a single scalar value
+        with bitwise OR of every value.
+
+        Example, where the threshold is 127:
+        (127, 0, 0, 1, 192, 168, 0, 1) => (128, 0, 0, 0, 8, 4, 0, 0)
+        after reducing: 127 | 8 | 4 => 140
+
+        in hex: \\x80\\x00\\x00\\x00\\x08\\x04\\x00\\x00 => \\x8C
+
+        """
+        p = (self._fill_pre_byte(vs[i], i, 7) for i in range(8))
+        t = tuple(accumulate(p, lambda x,y:x|y))
+        return t[-1]
+
+    def _fill_row(self, i):
+        # return the ith row of the sample blot function
+        s = self.width * i  # row start pixel index
+        n = ceil(self.width/8)*8
+            # add padding for widths not divisible by 8
+        return tuple((
+            self._fill_byte(tuple(self.fn(x, 8)))
+            for x in range(s,s+n,8)
+        )) # NOTE: tuple(generator)
+
+class RasterPlotGray8(RasterDumpGray8):
+    """
+    Raster dump for rendering plotting & blot functions to an
+    8-bit greyscale image.
+
+    RasterPlot uses RasterDump's pad pattern attribute and is
+    therefore intended for use with an empty raster buffer.
+    Please do not use the put_pixel_bytes() or put_pixel()
+    methods with this class.
+    """
+    MAX_VALUE = 255
+
+    def __init__(self, w, h, fn):
+        super().__init__(w, h)
+        self.fn = fn
+        self.threshold = 127
+        self.pad = (
+            self.MAX_VALUE-x for x in self.fn(0,self.width*self.height)
+        )
 
 # Shell Command Line Handler
 
