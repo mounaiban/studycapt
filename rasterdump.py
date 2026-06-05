@@ -126,7 +126,7 @@ class RasterDump:
 
     def _raster_size(self):
         # calc raster size in bytes
-        return (self.width * self.height)//8
+        return (ceil(self.width/8) * self.height)
 
     def clear(self):
         self.raster.truncate(0)
