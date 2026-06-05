@@ -233,7 +233,7 @@ class RasterWriter:
         self.path = out_path
         self.raster = raster
 
-    def _get_blob(self):
+    def get_blob(self):
         raise TypeError("please use a subclass of the RasterWriter")
 
     def get_raster_bpp(self):
@@ -245,7 +245,7 @@ class RasterWriter:
         (self.path).
         """
         with(open(self.path, mode='bw')) as f:
-            f.write(self._get_blob())
+            f.write(self.get_blob())
 
 class BMPWriter(RasterWriter):
     """
@@ -390,7 +390,7 @@ class BMPWriter(RasterWriter):
         bs = (bytes(x) for x in bgras) # BGRA is ARGB litle-endian
         return b''.join(bs)
 
-    def _get_blob(self):
+    def get_blob(self):
         """Prepare content for writing to file"""
         head = self._bmp_header()
         palette = self._bmp_monochrome_palette()
@@ -414,7 +414,7 @@ class PBMWriter(RasterWriter):
         RasterDumpRGB888: ("P6", "\n255\n"),
     } # format: (magic, maxval)
 
-    def _get_blob(self):
+    def get_blob(self):
         """Prepare content for writing to file"""
         cls = type(self.raster)
         clsbase = cls.__base__
