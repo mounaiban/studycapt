@@ -92,8 +92,11 @@ SQUARE_SIZE_DEFAULT = 64
 # Functions work within an 8 bit/colour limit. No CAPT printer is known
 # to be capable of a deeper colour depth (e.g. 10-bit).
 #
-# Grey pixels are returned as an 8-bit value; bi-level pixels are set
-# when a value of 127 (0x7F) or higher is returned.
+# Grey pixels are returned as an 8-bit value.
+#
+# Bi-level pixel output is derived from grey pixels; grey pixels
+# with a value of 127 (0x7F) or higher are converted to a set pixel,
+# while pixels of a lower value are left unset.
 #
 # Full-colour pixels are to packed in a 24-bit integer, identical in
 # structure to a hex code: primary red is 0xFF0000, primary green is
