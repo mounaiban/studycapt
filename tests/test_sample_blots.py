@@ -16,6 +16,7 @@ RLE Test Page Generator (sample_blots.py) Unit Tests
 # <http://creativecommons.org/publicdomain/zero/1.0/>.
 
 from unittest import TestCase
+from rasterdump import PBMWriter
 import sample_blots
 try:
     from hashlib import blake2s
@@ -103,6 +104,36 @@ class BlotFunctionTests(TestCase):
                 else:
                     samp_hasher = hashcls(samp)
                     self.assertEqual(samp_hasher.digest(), tcase['md5sum'])
+
+class RasterPlotTests(TestCase):
+
+    def test_p4_blob_size_check(self):
+        """
+        Verify that the contents of a written P4 PBM file is
+        of the correct size.
+        """
+        blot_pre_fn = sample_blots._mk_fn_all_clear
+        cases = {
+            'aligned_184_360': {
+                'args': {'w': 184, 'h': 360},
+                'expected_size': 8291,  # (184*360)/8 + 11
+            },
+            'unaligned_100_512': {
+                'args': {'w': 100, 'h': 512},
+                'expected_size': 6667,  # (512*104)/8 + 11
+            }
+        }
+        for k in cases.keys():
+            with self.subTest(k):
+                specs = cases[k]
+                args = specs['args']
+                fn = blot_pre_fn(**args)
+                rast = sample_blots.RasterPlot(
+                    args['w'], args['h'], fn
+                )
+                writer = PBMWriter(rast, '')
+                blob = writer.get_blob()
+                self.assertEqual(len(blob), specs['expected_size'])
 
 class P4Tests(TestCase):
     VALUE = 127

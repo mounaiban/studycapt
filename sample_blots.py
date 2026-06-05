@@ -511,6 +511,11 @@ RASTER_OUT_FNS = OrderedDict({
     'p4': _get_p4_raster,
     'p5': _get_p5_raster
 })
+RASTER_OUT_CLASSES = OrderedDict({
+    'p4': RasterPlot,
+    'p5': RasterPlotGray8
+})
+
 RESOLUTIONS_F = OrderedDict({
     '600': 1.0,
     '300': 0.5,
@@ -612,14 +617,10 @@ if __name__ == '__main__':
         margin_left=mleft,
         square_size=csz,
     )
-    fn_rast = RASTER_OUT_FNS[args.format]
-    if True in map(lambda x: x in args.comment, '\x0a\n'):
-        raise ValueError('newlines not permitted in comment')
-    _do_out = lambda: bytes(fn_rast(w, h, fn_px, args.comment))
+    cls_rast = RASTER_OUT_CLASSES[args.format]
+    rast = cls_rast(w, h, fn_px)
     if args.out_file:
-        with open(expanduser(args.out_file), mode='bx') as f:
-            f.write(_do_out())
-            f.close()
+        writer = PBMWriter(rast, expanduser(args.out_file)).write_out()
     else:
-        stdout.buffer.write(_do_out())
-
+        writer = PBMWriter(rast, "", overwrite=False)
+        stdout.buffer.write(writer.get_blob())
