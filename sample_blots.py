@@ -12,6 +12,7 @@ late-1990s Canon laser printers.
 # Written by Moses Chong
 # First edition 2022/04/15
 # Second edition 2022/05/01
+# Third edition 2026/06/06
 #
 # PUBLIC DOMAIN, NO RIGHTS RESERVED
 #
