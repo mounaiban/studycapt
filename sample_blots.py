@@ -445,12 +445,14 @@ class RasterPlot(RasterDump):
     def _fill_row(self, i):
         # return the ith row of the sample blot function
         s = self.width * i  # row start pixel index
-        n = ceil(self.width/8)*8
-            # add padding for widths not divisible by 8
-        return tuple((
-            self._fill_byte(tuple(self.fn(x, 8)))
-            for x in range(s,s+n,8)
-        )) # NOTE: tuple(generator)
+        n_pad = ceil(self.width/8)*8 - self.width
+        n = self.width + n_pad
+        pixs = self.fn(s, self.width)
+        pad = (0x00,) * n_pad
+        row = tuple(chain(pixs, pad))
+        return tuple(
+            (self._fill_byte(row[x:x+8])for x in range(0,n,8))
+        )
 
 class RasterPlotGray8(RasterDumpGray8):
     """
