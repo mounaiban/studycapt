@@ -40,11 +40,7 @@ from math import ceil
 from os.path import expanduser
 from rasterdump import RasterDump, RasterDumpGray8, PBMWriter
 from sys import argv, stdout
-from blob_pic import BlobPic
 
-TITLE = "Studycapt RLE Study"
-HEADER_FMT = "{}\n# Studycapt RLE Study\n# {}\n{} {}\n"
-PIXELS_PER_BYTE = 8
 PX_VALUE_DEFAULT = 127
 P4_MIN_VALUE = 127
 P5_MAX_VALUE = 255
@@ -334,67 +330,6 @@ def _mk_fn_quarter_diagonal(w, h, **kwargs):
     """
     return _mk_fn_half_diagonal(w, h, m=(h//2)/w, **kwargs)
 
-# Raster setup functions
-
-def _get_p5_raster(w, h, fn, comment=''):
-    """
-    Generate PGM P5 raster w pixels wide, h pixels tall, using pixel
-    function fn. Return raster as an iter.
-
-    """
-    h_maxg = '{} {}'.format(h, P5_MAX_VALUE) # height and max grey value in one
-    header = bytes(
-        HEADER_FMT.format('P5', comment, w, h_maxg), encoding='ascii'
-    )
-    body = bytes(P5_MAX_VALUE-x for x in fn(0, (w*h)-1))
-    raster = chain(header, body)
-    return (x for x in raster)
-
-def _get_p4_raster(w, h, fn, comment=''):
-    """
-    Generate PBM P4 raster w pixels wide, h pixels tall, using pixel
-    function fn. Return the raster as an iter.
-
-    Any pixel of value 127 and above will be set.
-
-    """
-    header = bytes(
-        HEADER_FMT.format('P4', comment, w, h), encoding='ascii'
-    )
-    rows = (_p4_get_row(w, fn(x, w), P4_MIN_VALUE) for x in range(0,w*h, w))
-    body = chain.from_iterable(r for r in rows)
-    raster = chain(header, body)
-    return (x for x in raster)
-
-def _get_bmp_raster(w, h, fn, **kwargs):
-    # comments are not supported
-    rows = (_p4_get_row(w, fn(x, w), P4_MIN_VALUE) for x in range(0,w*h, w))
-    body = bytes(chain.from_iterable(r for r in rows))
-    return (x for x in BlobPic(w, h, body, bpp=1).bmp())
-
-def _p4_get_row(w, v, t):
-    """
-    Format a row of pixel values 'v' for a P4 raster 'w' pixels wide.
-    Any pixel of value 't' and above will be set.
-
-    Pixels are returned as a row of packed ints (8-bit int where each
-    bit represents one pixel).
-
-    """
-    out = 0x0
-    mask = 0x80
-    i = 0
-    for val in v:
-        if val >= t: out |= mask
-        mask >>= 1
-        i += 1
-        if not mask:
-            yield out
-            out = 0x0 # PROTIP: fn starts here on next call
-            mask = 0x80
-            # See: https://docs.python.org/3/tutorial/classes.html#generators
-    if i%8: yield out # flush out the last byte of the row
-
 # RasterPlot classes
 
 class RasterPlot(RasterDump):
@@ -510,10 +445,6 @@ PATTERNS_FNS = OrderedDict({
     'incr-runs-2-pow-x': _mk_fn_incr_runs_2_pow_x,
     'quarter-diagonal': _mk_fn_quarter_diagonal,
 })
-RASTER_OUT_FNS = OrderedDict({
-    'p4': _get_p4_raster,
-    'p5': _get_p5_raster
-})
 RASTER_OUT_CLASSES = OrderedDict({
     'p4': RasterPlot,
     'p5': RasterPlotGray8
@@ -549,8 +480,8 @@ if __name__ == '__main__':
                 'help': 'sample page resolution in DPI'
             },
             '--format': {
-                'choices': RASTER_OUT_FNS.keys(),
-                'default': next(iter(RASTER_OUT_FNS.keys())),
+                'choices': RASTER_OUT_CLASSES.keys(),
+                'default': next(iter(RASTER_OUT_CLASSES.keys())),
                 'help': 'sample page raster format',
             },
             '--grate_x': {
