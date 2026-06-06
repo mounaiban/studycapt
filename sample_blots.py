@@ -531,10 +531,8 @@ if __name__ == '__main__':
     fact = RESOLUTIONS_F[args.resolution]
     w = int(round(size[0] * fact))
     h = int(round(size[1] * fact))
-    gx = w+1
-    if args.grate_x: gx = int(args.grate_x)
-    gy = h+1
-    if args.grate_y: gy = int(args.grate_y)
+    gx = int(args.grate_x or w+1)
+    gy = int(args.grate_y or h+1)
     mleft = int(args.margin_left)
     mkfn_px = PATTERNS_FNS[args.mode]
     val = int(args.p5_value)
