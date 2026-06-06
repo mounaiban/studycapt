@@ -514,10 +514,6 @@ if __name__ == '__main__':
                 'default': '127',
                 'help': 'grey value to use in P5 mode (0-255)'
             },
-            '--comment': {
-                'default': '',
-                'help': 'one-liner comment to embed in output'
-            }
         }
     })
     parser = ArgumentParser(description=parser_spec['desc'])
