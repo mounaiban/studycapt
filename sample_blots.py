@@ -433,23 +433,63 @@ SIZES_600D = OrderedDict({
   # Size for 16K and 3x5in Index Cards taken from Canon PPDs
   # (CNCUPSLBP1120CAPTK.ppd)
 PATTERNS_FNS = OrderedDict({
-    'all-clear': _mk_fn_all_clear,
-    'all-set': _mk_fn_all_set,
-    'checkerboard': _mk_fn_checkerboard,
-    'circle': _mk_fn_circle,
-    'gradient-horizontal': _mk_fn_gradient_horizontal,
-    'half-diagonal': _mk_fn_half_diagonal,
-    'reversed-half-diagonal': _mk_fn_reversed_half_diagonal,
-    'half-horizontal': _mk_fn_half_horizontal,
-    'mirrored-incr-runs': _mk_fn_mirrored_incr_runs,
-    'incr-runs': _mk_fn_incr_runs,
-    'incr-runs-2-pow-x': _mk_fn_incr_runs_2_pow_x,
-    'quarter-diagonal': _mk_fn_quarter_diagonal,
+    'all-clear': {
+        'fn': _mk_fn_all_clear,
+        'raster_class': RasterPlot
+    },
+    'all-set': {
+        'fn': _mk_fn_all_set,
+        'raster_class': RasterPlot
+    },
+    'all-set-gray': {
+        'fn': _mk_fn_all_set,
+        'raster_class': RasterPlotGray8
+    },
+    'checkerboard': {
+        'fn': _mk_fn_checkerboard,
+        'raster_class': RasterPlot
+    },
+    'circle': {
+        'fn': _mk_fn_circle,
+        'raster_class': RasterPlot
+    },
+    'gradient-horizontal': {
+        'fn': _mk_fn_gradient_horizontal,
+        'raster_class': RasterPlotGray8
+    },
+    'half-diagonal': {
+        'fn': _mk_fn_half_diagonal,
+        'raster_class': RasterPlot
+    },
+    'reversed-half-diagonal': {
+        'fn': _mk_fn_reversed_half_diagonal,
+        'raster_class': RasterPlot
+    },
+    'half-horizontal': {
+        'fn': _mk_fn_half_horizontal,
+        'raster_class': RasterPlot
+    },
+    'mirrored-incr-runs': {
+        'fn': _mk_fn_mirrored_incr_runs,
+        'raster_class': RasterPlot
+    },
+    'incr-runs': {
+        'fn': _mk_fn_incr_runs,
+        'raster_class': RasterPlot
+    },
+    'incr-runs-2-pow-x': {
+        'fn': _mk_fn_incr_runs_2_pow_x,
+        'raster_class': RasterPlot
+    },
+    'quarter-diagonal': {
+        'fn': _mk_fn_quarter_diagonal,
+        'raster_class': RasterPlot
+    }
 })
-RASTER_OUT_CLASSES = OrderedDict({
-    'p4': RasterPlot,
-    'p5': RasterPlotGray8
-})
+RASTER_CLASS_TO_DESC = {
+    RasterPlot: 'Black & White/P4',
+    RasterPlotGray8: 'Greyscale 8-bit/P5'
+}
 
 RESOLUTIONS_F = OrderedDict({
     '600': 1.0,
@@ -461,13 +501,29 @@ RESOLUTIONS_F = OrderedDict({
 }) # PROTIP: Choices must be strings.
 # Lower resolutions are only intended for illustrative purposes
 
+def print_mode_details():
+    spaces = lambda x: max(28-x, 1)
+    spair = lambda x,y: "{}{}{}".format(x, ' '*spaces(len(x)), y)
+    print('--mode option missing')
+    print('please select a pattern mode from below:\n')
+    print('\x1b[1m\x1b[38:5:204m',end='')
+    print(spair('mode', 'output format'))
+    print('\x1b[0m', end='')
+    for x in PATTERNS_FNS.keys():
+        rast_class = PATTERNS_FNS[x]['raster_class']
+        print(spair(x, RASTER_CLASS_TO_DESC[rast_class]))
+
 if __name__ == '__main__':
     with_g = 'checkerboard', 'circle', 'half-diagonal'
         # modes where grate control is available
     with_mleft = 'checkerboard', 'half-diagonal'
         # modes where left margin control is available
+    with_value = tuple(
+        x for x in PATTERNS_FNS.keys() \
+        if PATTERNS_FNS[x]['raster_class'] is RasterPlotGray8
+    )   # modes that output greyscale images
     parser_spec = OrderedDict({
-        'desc': 'Generate PBM P4 for RLE compression studies',
+        'desc': 'Generate PBM for RLE compression studies',
         'help': 'hi',
         'args': {
             '--size': {
@@ -481,9 +537,8 @@ if __name__ == '__main__':
                 'help': 'sample page resolution in DPI'
             },
             '--format': {
-                'choices': RASTER_OUT_CLASSES.keys(),
-                'default': next(iter(RASTER_OUT_CLASSES.keys())),
-                'help': 'sample page raster format',
+                'deprecated': True,
+                'help': 'deprecated, now selected automatically'
             },
             '--grate_x': {
                 'default': None,
@@ -503,18 +558,21 @@ if __name__ == '__main__':
             },
             '--mode': {
                 'choices': PATTERNS_FNS.keys(),
-                'default': next(iter(PATTERNS_FNS.keys())),
                 'help': 'test pattern type, see module for details'
             },
             '--out_file': {
                 'default': None,
                 'help': 'path to output file; omit to use standard output'
             },
-            '--p5_value': {
+            '--value': {
                 'default': '127',
-                'help': 'grey value to use in P5 mode (0-255)'
+                'help': "grey value to use for greyscale modes (0-255) ({} only)".format(with_value)
             },
-        }
+            '--p5_value': {
+                'deprecated': True,
+                'default': '127',
+                'help': 'deprecated, please use --value'
+            },        }
     })
     parser = ArgumentParser(description=parser_spec['desc'])
     for k_arg in parser_spec['args']:
@@ -525,8 +583,12 @@ if __name__ == '__main__':
             choices=spec_arg.get('choices'),
             required=spec_arg.get('required', False),
             help=spec_arg.get('help'),
+            deprecated=spec_arg.get('deprecated', False)
         )
     args = parser.parse_args()
+    if not args.mode:
+        print_mode_details()
+        exit()
     size = SIZES_600D[args.size]
     fact = RESOLUTIONS_F[args.resolution]
     w = int(round(size[0] * fact))
@@ -534,8 +596,8 @@ if __name__ == '__main__':
     gx = int(args.grate_x or w+1)
     gy = int(args.grate_y or h+1)
     mleft = int(args.margin_left)
-    mkfn_px = PATTERNS_FNS[args.mode]
-    val = int(args.p5_value)
+    mkfn_px = PATTERNS_FNS[args.mode]['fn']
+    val = int(args.value or args.p5_value)
     csz = int(args.square_size)
     fn_px = mkfn_px(
         w,
@@ -546,7 +608,7 @@ if __name__ == '__main__':
         margin_left=mleft,
         square_size=csz,
     )
-    cls_rast = RASTER_OUT_CLASSES[args.format]
+    cls_rast = PATTERNS_FNS[args.mode]['raster_class']
     rast = cls_rast(w, h, fn_px)
     if args.out_file:
         writer = PBMWriter(rast, expanduser(args.out_file)).write_out()
