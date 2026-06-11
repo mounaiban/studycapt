@@ -45,7 +45,6 @@ from rasterdump import RasterDump, RasterDumpGray8, \
 from sys import argv, stdout
 
 PX_VALUE_DEFAULT = 127
-P4_MIN_VALUE = 127
 P5_MAX_VALUE = 255
 SQUARE_SIZE_DEFAULT = 64
 
