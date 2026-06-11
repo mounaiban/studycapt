@@ -157,15 +157,18 @@ def _mk_fn_gradient_horizontal(w, h, **kwargs):
     Creates a function to output a horizontal, linear, white-to-black
     greyscale gradient. Intended for use with P5 output only.
 
+    Keyword arguments: 'value' (int) - value of the darkest shade,
+    from 0x00 to 0xFF
     """
     img_w = w
     img_h = h
     n_px = h * w
+    v = kwargs.get('value', P5_MAX_VALUE)
 
     def _fn_gradient_horizontal(i, n):
         for j in range(min(n_px-i, n)):
-            y = (i+j) // img_h
-            yield int(P5_MAX_VALUE * y/img_h)
+            y = (i+j) // img_w
+            yield ceil(v * (y/img_h))
 
     return _fn_gradient_horizontal
 
