@@ -1,8 +1,9 @@
 #! /bin/python
 """
 RLE Test Page Generator
-Create rasters with funky patterns for studying run-length encoding (RLE)
-techniques. Rasters may be output in PBM (P4) or PGM (P5) format.
+Create rasters with funky patterns for studying run-length encoding
+(RLE) techniques. Rasters are output in netpbm format (P4 for black-
+and-white, P5 for greyscale and P6 for colour).
 
 The original purpose of this module was to reverse-engineer the Smart
 Compression Architecture (SCoA) format primarily used by early-2000s and
@@ -39,7 +40,8 @@ from collections import OrderedDict
 from itertools import accumulate, chain
 from math import ceil
 from os.path import expanduser
-from rasterdump import RasterDump, RasterDumpGray8, PBMWriter
+from rasterdump import RasterDump, RasterDumpGray8, \
+    RasterDumpRGB888, PBMWriter
 from sys import argv, stdout
 
 PX_VALUE_DEFAULT = 127
@@ -334,6 +336,36 @@ def _mk_fn_quarter_diagonal(w, h, **kwargs):
     """
     return _mk_fn_half_diagonal(w, h, m=(h//2)/w, **kwargs)
 
+def _mk_fn_primary_colors(w, h, **kwargs):
+    """
+    Create a function that constructs a patten such that there
+    are stripes of RGB and CMY primary colours, punctuated by
+    a black and a white stripe. The pattern cycles twice along
+    the height of the raster.
+    """
+
+    img_w = w
+    img_h = h
+    n_px = h * w
+    colors = (
+        (255, 0 ,0),    # red
+        (255, 255, 0),  # yellow
+        (0, 255, 0),    # green
+        (0, 255, 255),  # cyan
+        (0, 0, 255),    # blue
+        (255, 0, 255),  # magenta
+        (0, 0, 0),      # black
+        (255, 255, 255) # white
+    )
+    nc = len(colors)
+    band_h = img_h // nc // 2
+
+    def _fn_primary_colors(i, n):
+        for j in range(min(n_px-i, n)):
+            yield colors[(j+i)//img_w//band_h%nc]
+
+    return _fn_primary_colors
+
 # RasterPlot classes
 
 class RasterPlot(RasterDump):
@@ -416,6 +448,24 @@ class RasterPlotGray8(RasterDumpGray8):
             self.MAX_VALUE-x for x in self.fn(0,self.width*self.height)
         )
 
+class RasterPlotRGB888(RasterDumpRGB888):
+    """
+    Raster dump for rendering plotting & blot functions to an
+    8-bit greyscale image.
+
+    RasterPlot uses RasterDump's pad pattern attribute and is
+    therefore intended for use with an empty raster buffer.
+    Please do not use the put_pixel_bytes() or put_pixel()
+    methods with this class.
+    """
+    def __init__(self, w, h, fn):
+        super().__init__(w, h)
+        self.fn = fn
+        self.threshold = 127
+        self.pad = chain.from_iterable(
+            x for x in self.fn(0,self.width*self.height)
+        )
+
 # Shell Command Line Handler
 
 SIZES_600D = OrderedDict({
@@ -487,11 +537,16 @@ PATTERNS_FNS = OrderedDict({
     'quarter-diagonal': {
         'fn': _mk_fn_quarter_diagonal,
         'raster_class': RasterPlot
+    },
+    'primary-colors': {
+        'fn': _mk_fn_primary_colors,
+        'raster_class': RasterPlotRGB888
     }
 })
 RASTER_CLASS_TO_DESC = {
     RasterPlot: 'Black & White/P4',
-    RasterPlotGray8: 'Greyscale 8-bit/P5'
+    RasterPlotGray8: 'Greyscale 8-bit/P5',
+    RasterPlotRGB888: 'Colour 24-bit/P6'
 }
 
 RESOLUTIONS_F = OrderedDict({
