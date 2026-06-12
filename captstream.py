@@ -24,6 +24,11 @@ and transport format for print data.
 
 # NOTE
 # ====
+# This module contains deprecated and obsolete code and documentation,
+# which will be progressively redacted in subsequent releases.
+# Please refer to earlier commits if access to historical information
+# is required.
+#
 # The routines in this module are still rather inefficient, especially
 # with files containing a large number of pages. This module is
 # currently sufficient for development use only, and not intended for
@@ -34,11 +39,162 @@ import pdb
 import os.path
 from argparse import ArgumentParser
 from collections import OrderedDict
+from struct import unpack
 from sys import stdin, stdout
+
 try:
     from scoa import SCoADecoder
 except ModuleNotFoundError:
     SCoADecoder = None
+
+
+## Revised CAPTStream (2026)
+## =========================
+
+class CAPTStream2:
+    """
+    Interface for reading data from CAPT job files and streams
+    that promises to be more elegant and efficient than the OG
+    CAPTStream
+    """
+
+    # Informal Summary of CAPT Job Stream Layout
+    # (Revised 2026 Edition)
+    #
+    # CAPT job files/streams are produced by the captfilter
+    # command from the official CAPT Linux driver.
+    # The captfilter command converts netpbm rasters into
+    # CAPT job files.
+    #
+    # A CAPT job stream is basically a series of CAPT packets
+    # back-to-back. Recall that each packet has a two-byte
+    # type identifier followed by the size of the entire
+    # packet. These packets are identical in structure to
+    # the commands sent to the printer, and the responses
+    # from the printer.
+    #
+    # CAPTFILE := [PACKET0...PACKETn]
+    # PACKET:= [TYPE, SIZE, [PAYLOAD]]
+    #
+    # CAPT streams begin with a job info packet (0x0001),
+    # immediately followed by one or more pages/images.
+    #
+    # Each image begins with a page info packet (0x0002),
+    # followed by several page prologue commands, depending
+    # on the printer device. The image data ("video data" in
+    # Canon literature) is contained in multiple packets.
+    # A CAPT 1.x job contains SCoA-encoded data in 0xC0A0
+    # packets, while a CAPT 2.x or 3.x job contains Hi-SCoA-
+    # encoded images in 0x8000 packets.
+    #
+    # Images end with one or more control packets depending
+    # on the printer, and finally with a 0x0004 packet.
+    #
+    # Job files end with a 0x0003 packet.
+    #
+    HEADER_LENGTH = 4
+    SIZE_TO_TBL_MODEL = {24:'1', 40:'2|3'}
+
+    def __init__(self, stream):
+        self.stream = stream
+
+    def packets(self):
+        # returns an iter of CAPT packet headers from the stream
+        self.stream.seek(0)
+        head = b'\x00'
+        try:
+            while(head):
+                head = self.stream.read(self.HEADER_LENGTH)
+                pack = CAPTPacket(head, self.stream.tell())
+                yield pack
+                self.stream.seek(self.stream.tell()+pack.data_length)
+                    # skip data stream
+        except ValueError:
+            return
+
+    def get_job_info(self):
+        self.stream.seek(0)
+        pk_01= next(self.packets())
+        jinfo = self.get_packet_data(pk_01)
+        return {
+            'CNTblModel': self.SIZE_TO_TBL_MODEL.get(pk_01.length),
+            'dump': jinfo
+        }
+
+    def get_packet_data(self, packet):
+        if type(packet) is not CAPTPacket:
+            raise TypeError('packet must be a CAPTPacket object')
+        off = packet.data_offset()
+        if off:
+            self.stream.seek(off)
+            return self.stream.read(packet.data_length)
+        else: return None
+
+class CAPTPacket:
+    """
+    Reference to a packet in a CAPT Job Stream, for use with
+    the CAPTStream2 class
+    """
+    HEADER_SFMT = "<HH"
+    MIN_SIZE = 4
+    OPCODE_TO_NAME = {
+        0x0001: 'JOB_INFO',
+        0x0002: 'PAGE_METADATA',
+        0x0003: 'END_STREAM',
+        0x0004: 'END_PAGE',
+        0x8000: 'IC_VIDEO_DATA <Hi-SCoA on host>',
+        0xC0A0: 'IC_VIDEO_DATA',
+        0xC0A4: 'IC_BLACK_END',   # Hi-SCoA only
+        0xD0A0: 'IC_BEGIN_PAGE',
+        0xD0A4: 'IC_BLACK_PLANE', # Hi-SCoA init
+        0xD0A1: 'IC_BEGIN_DATA',
+        0xD0A2: 'IC_END_PAGE'
+    } # thanks @ValdikSS for 0xC0 and 0xD0 opcode names
+
+    def __init__(self, b, offset):
+        # NOTE: offset is for the beginning of the packet,
+        #  not the data payload
+        if type(b) is not bytes:
+            raise TypeError('b must be a byte array')
+        elif len(b) < self.MIN_SIZE:
+            raise ValueError('b must be at least 4 bytes long')
+        p, L = unpack(self.HEADER_SFMT, b[:4])
+        if L < self.MIN_SIZE:
+            raise ValueError('CAPT packet size must be 4 or larger')
+        self.packet_type = p
+        self.length = L
+        self.offset = offset
+        self.data_length = max(L-self.MIN_SIZE, 0)
+
+    def __str__(self):
+        return "{}: {} ({}); {}B @ {}".format(
+            type(self).__name__,
+            self.OPCODE_TO_NAME.get(self.packet_type, ''),
+            hex(self.packet_type),
+            self.length,
+            hex(self.offset)
+        )
+
+    def data_offset(self):
+        if self.data_length <= 0: return None
+        else: return self.offset + self.MIN_SIZE+1
+
+def list_packets(path):
+    # List packets in job file at path
+    # To obtain a job file, run:
+    # captfilter --CNTblModel $M $IN_FILE > $OUT_FILE
+    # $M is either 0, 1 or 2.
+    # Other options found to work include:
+    # --Collate [True|False]
+    # --CNCopies  0..2^32-1   (CAPT supports >4 billion copies)
+    # --InputSlot [Auto|Manual|Cas1|Cas2|Cas3|Cas4]
+    #
+    with open(path, mode='rb') as f:
+        for p in CAPTStream2(f).packets():
+            print(p)
+
+## OG CAPTStream
+## =============
 
 # CAPT spec constants
 MAGIC_SIZE = 8
@@ -56,11 +212,15 @@ CAPT_RASTER_END = b'\xa2\xd0'
 HEADER_FMT = "{fmt}\n{w} {h}\n{size}\n"
 P4_HEADER_FMT = "P4\n{w} {h}\n"
 
+
 class CAPTStream:
     """Interface for reading data from CAPT job files and streams"""
 
     # Informal Summary of CAPT Job File (CAPTFILE) layout
     # ===================================================
+    # NOTE: This summary was found to be inaccurate after further
+    #  studies on the structure of the job files
+    #
     # CAPTFILE = [MAGIC, [PAGE0..PAGEn], END]
     # FOOTER = (end-of-page/chunk data)
     # MAGIC = (file type identifier string, FOOTER)
