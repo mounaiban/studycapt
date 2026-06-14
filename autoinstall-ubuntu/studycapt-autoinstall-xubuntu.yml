@@ -71,6 +71,8 @@ autoinstall:
     variant: ''
   late-commands:
     - curtin in-target -- dpkg --add-architecture i386
+    - curtin in-target -- apt-get update
+    - curtin in-target -- apt-get install -y libatk1.0-0t64:i386 libc6:i386 libcairo2:i386 libgtk2.0-0t64:i386 libpango-1.0-0:i386 libpopt0:i386 libstdc++6:i386 libxml2:i386
   locale: en_US.UTF-8
   oem:
     install: false
@@ -81,8 +83,10 @@ autoinstall:
     - gimp
     - git
     - inkscape
+    - libcanberra-gtk-module
     - libcups2-dev
     - libreoffice
+    - libglade2-0
     - vim-gtk3
     - wireshark
   source:
