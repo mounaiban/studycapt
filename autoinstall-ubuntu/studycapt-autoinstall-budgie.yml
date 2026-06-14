@@ -80,7 +80,7 @@ autoinstall:
     - atril
     - automake
     - build-essential
-    - drawing
+    - gimp
     - git
     - inkscape
     - libcups2-dev
