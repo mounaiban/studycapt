@@ -1,39 +1,18 @@
 #cloud-config
 #
-# Studycapt Ubuntu VM Autoinstall File
+# Studycapt Xubuntu VM Autoinstall File
 #
 # Adapted from /var/log/installer/autoinstall-user-data
-# Edited by Moses Chong, 2024-08-25
+# Edited by Moses Chong, 2026-06-14
 # License: CC0, https://creativecommons.org/publicdomain/zero/1.0/
 #
-# This autoconfig helps set up an Ubuntu VM for analysing
-# the CAPT protocol and associated data formats.
-#
-# Hosting the Autoinstall file via Python HTTP Server
-# ===================================================
-# Running this command in a directory containing an
-# autoinstall file:
-#
-# python3 -m http.server --bind ::1 9001
-#
-# When prompted by the Ubuntu installer, use the whole
-# URL with file path: http://[::1]:9001/studycapt-autoinstall.yml
-# Alternatively, try using IPv4 localhost 127.0.0.1 instead of ::1
-# if you run into IPv6 compatibility issues.
-#
-# It might be worth checking out: https://superuser.com/questions/1669407
-#
-# Security Advice and Password
-# ============================
-# Password is HP_IS_BETTER, please change this even if
-# you are running in a VM. If a VM is compromised via the
-# internet using this password, it may affect the host
-# system by way of shared directories.
-#
-# TODO: FINAL TEST
+# This autoconfig helps set up an Xubuntu 24.04 VM for
+# analysing the CAPT protocol and associated data formats.
+# Further details are in the autoinstall-ubuntu.md file.
 #
 # See the autoinstall documentation at:
 # https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-reference.html
+#
 autoinstall:
   apt:
     disable_components: []
@@ -56,12 +35,8 @@ autoinstall:
     install: false
   debconf-selections:
     wireshark-common wireshark-common/install-setuid boolean true
-  identity:
-    hostname: studycapt-vm
-    password: $6$rKQlE8C9hPMnE3vK$GXt82Y7tGFMLzQsipllGuVKbDHdUZ9kEwD2eUJCP1aFjBzBGCarzFEU1/LxzcOz8.rMKVekM2st7q7naujAyp1
-    realname: studycapt
-    username: capthacker
   interactive-sections:
+    - identity
     - storage
   kernel:
     package: linux-generic
@@ -78,6 +53,7 @@ autoinstall:
     install: false
   packages:
     - automake
+    - b3sum
     - evince
     - build-essential
     - gimp
