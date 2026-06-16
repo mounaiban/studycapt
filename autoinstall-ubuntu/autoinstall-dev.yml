@@ -1,38 +1,18 @@
 #cloud-config
 #
 # Studycapt VM Autoinstall File
-# For Ubuntu Budgie 26.04 LTS on x86_64 only.
-# Installation will fail on other Ubuntu flavours or
-#   instruction set architectures.
+# For Ubuntu Budgie 26.04 LTS only.
+#
+# This autoconfig file sets up an Ubuntu Budgie system for
+#  evaluating and debugging captdriver
 #
 # Adapted from /var/log/installer/autoinstall-user-data
 # Edited by Moses Chong, 2026-06-08
 # License: CC0, https://creativecommons.org/publicdomain/zero/1.0/
 #
-# This autoconfig helps set up an Ubuntu VM for analysing
-# the CAPT protocol and associated data formats.
-# Package choices has been tweaked for Ubuntu Budgie.
-#
-# Limitations
-# ===========
-# The system resulting from using this file is only capable of
-# running captfilter manually extracted from the official Canon
-# Deb or RPM packages. Further configuration is needed to enable
-# the other components for full printing support.
-#
-# Security Advice and Password
-# ============================
-# Password is HP_IS_BETTER, please change this even if
-# you are running in a VM. If a VM is compromised via the
-# internet using this password, it may affect the host
-# system by way of shared directories.
-#
 # References
 # ==========
 # Autoinstall documentation: https://canonical-subiquity.readthedocs-hosted.com/en/latest/reference/autoinstall-reference.html
-#
-# TODO: Can i386 packages be added in the packages section,
-#   or are we stuck with using curtin in-target late commands?
 #
 autoinstall:
   apt:
@@ -56,23 +36,15 @@ autoinstall:
     install: false
   drivers:
     install: false
-  identity:
-    hostname: capthacker-pc
-    password: $6$kBZ8Kq9i49dTfBbY$cK/Gl64PBJGcdCaed3QgWQRqwUgtQbZTxXwC2M0pikdrf/dOxMGlhkPF48JCmjEdj68sZ2.0FRuM9XEIB0DPV0
-    realname: capthacker
-    username: capthacker
   interactive-sections:
     - storage
+    - identity
   kernel:
     package: linux-generic-hwe-24.04
   keyboard:
     layout: us
     toggle: null
     variant: ''
-  late-commands:
-    - curtin in-target -- dpkg --add-architecture i386
-    - curtin in-target -- apt-get update
-    - curtin in-target -- apt-get install -y libatk1.0-0t64:i386 libc6:i386 libcairo2:i386 libgtk2.0-0t64:i386 libpango-1.0-0:i386 libpopt0:i386 libstdc++6:i386 libxml2-16:i386
   locale: en_US.UTF-8
   oem:
     install: auto
