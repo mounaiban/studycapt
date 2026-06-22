@@ -153,6 +153,8 @@ class CAPTStream2:
         }
 
     def get_packet_data(self, packet):
+        if packet.stream_id != self.stream_id():
+            raise Exception('mismatched packet stream_id')
         if type(packet) is not CAPTPacket:
             raise TypeError('packet must be a CAPTPacket object')
         off = packet.data_offset()
@@ -161,13 +163,43 @@ class CAPTStream2:
             return self.stream.read(packet.data_length)
         else: return None
 
+    def get_page(self, n):
+        # Returns a tuple of packets containing data
+        # for page n; n=1 is the first page.
+        if n<1: raise IndexError('n must be 1 or greater')
+        if not self.pages: self.refresh_page_index()
+        lastp = len(self.pages)
+        if n > lastp: raise IndexError('last page is {}'.format(lastp))
+        pse = self.pages[n-1]
+        return tuple(self._packets(pse[0].offset, pse[1].offset))
+
+    def get_page_starts_and_ends(self):
+        # returns a tuple of validated and paired page start
+        # and end packets
+        codes = (self.PTYPE_PAGE_METADATA, self.PTYPE_END_PAGE)
+        pkts = (x for x in self._packets() if x.ptype in codes)
+        pairs = tuple(batched(pkts, 2))
+        for p in pairs: self._validate_page_packet_pairs(p)
+        return pairs
+
+    def refresh_page_index(self):
+        # creates or refreshes the page index
+        # and returns the page count
+        self.pages = self.get_page_starts_and_ends()
+        return len(self.pages)
+
+    def stream_id(self):
+        # returns the id of the stream, mainly to verify
+        # that a stream was a source of a CAPTPacket
+        return id(self.stream)
+
 class CAPTPacket:
     """
     Reference to a packet in a CAPT Job Stream, for use with
     the CAPTStream2 class
     """
     HEADER_SFMT = "<HH"
-    MIN_SIZE = 4
+    MIN_SIZE = 4  # also header size
     OPCODE_TO_NAME = {
         0x0001: 'JOB_INFO',
         0x0002: 'PAGE_METADATA',
@@ -179,10 +211,14 @@ class CAPTPacket:
         0xD0A0: 'IC_BEGIN_PAGE',
         0xD0A4: 'IC_BLACK_PLANE', # Hi-SCoA init
         0xD0A1: 'IC_BEGIN_DATA',
-        0xD0A2: 'IC_END_PAGE'
-    } # thanks @ValdikSS for 0xC0 and 0xD0 opcode names
+        0xD0A2: 'IC_END_PAGE',
+        0x670A: 'TEST_A', #
+        0x670B: 'TEST_B', #  Non-Canon (pun intended)
+        0x670C: 'TEST_C', #  test packets
+        0x670D: 'TEST_D', #
+    } # thanks @ValdikSS for 0xC0, 0xD0 opcode/packet type names
 
-    def __init__(self, b, offset):
+    def __init__(self, b, offset, stream_id):
         # NOTE: offset is for the beginning of the packet,
         #  not the data payload
         if type(b) is not bytes:
@@ -192,23 +228,27 @@ class CAPTPacket:
         p, L = unpack(self.HEADER_SFMT, b[:4])
         if L < self.MIN_SIZE:
             raise ValueError('CAPT packet size must be 4 or larger')
-        self.packet_type = p
+        self.ptype = p
         self.length = L
         self.offset = offset
         self.data_length = max(L-self.MIN_SIZE, 0)
+        self.stream_id = stream_id
 
     def __str__(self):
-        return "{}: {} ({}); {}B @ {}".format(
+        return "{}: {} ({}), {}B @ {}".format(
             type(self).__name__,
-            self.OPCODE_TO_NAME.get(self.packet_type, ''),
-            hex(self.packet_type),
+            self.OPCODE_TO_NAME.get(self.ptype, ''),
+            hex(self.ptype),
             self.length,
             hex(self.offset)
         )
 
+    def __repr__(self):
+        return "<{}>".format(self.__str__())
+
     def data_offset(self):
         if self.data_length <= 0: return None
-        else: return self.offset + self.MIN_SIZE+1
+        else: return self.offset + self.MIN_SIZE
 
 def list_packets(path):
     # List packets in job file at path
