@@ -39,8 +39,10 @@ import pdb
 import os.path
 from argparse import ArgumentParser
 from collections import OrderedDict
+from itertools import batched, dropwhile
 from struct import unpack
 from sys import stdin, stdout
+from rasterdump import PBMWriter, RasterDump
 
 try:
     from scoa import SCoADecoder
@@ -94,27 +96,56 @@ class CAPTStream2:
     #
     HEADER_LENGTH = 4
     SIZE_TO_TBL_MODEL = {24:'1', 40:'2|3'}
+    PTYPE_JOB_INFO = 0x01
+    PTYPE_PAGE_METADATA = 0x02
+    PTYPE_END_PAGE = 0x04
+    OFFSET_LIMIT = 2**64 - 1
 
     def __init__(self, stream):
         self.stream = stream
+        self.pages = None
 
-    def packets(self):
-        # returns an iter of CAPT packet headers from the stream
-        self.stream.seek(0)
+    def _packets(self, start=0, end=OFFSET_LIMIT):
+        # Returns an iter of CAPT packet headers from the stream,
+        # between start and end. The first packet will be assumed
+        # to be at offset 'start'.
+        self.stream.seek(start)
         head = b'\x00'
         try:
-            while(head):
+            while(head) and self.stream.tell() <= end:
                 head = self.stream.read(self.HEADER_LENGTH)
-                pack = CAPTPacket(head, self.stream.tell())
+                pack = CAPTPacket(
+                    head,
+                    self.stream.tell()-self.HEADER_LENGTH,
+                    id(self.stream)
+                )
                 yield pack
                 self.stream.seek(self.stream.tell()+pack.data_length)
                     # skip data stream
         except ValueError:
             return
 
+    def _validate_page_packet_pairs(self, p):
+        a, b = p
+        pair_codes = (self.PTYPE_PAGE_METADATA, self.PTYPE_END_PAGE)
+        if (a.ptype, b.ptype) != pair_codes:
+            raise Exception(
+                'PAGE_METADATA, PAGE_END pair not detected',
+                a.offset
+            )
+        if a.offset > b.offset:
+            raise Exception(
+                'PAGE_METADATA offset occurs before PAGE_END',
+                a.offset,
+                b.offset
+            )
+
     def get_job_info(self):
         self.stream.seek(0)
-        pk_01= next(self.packets())
+        pk_01= next(self._packets())
+        if pk_01.ptype != self.PTYPE_JOB_INFO:
+            raise Warning('not a captfilter job file')
+            return None
         jinfo = self.get_packet_data(pk_01)
         return {
             'CNTblModel': self.SIZE_TO_TBL_MODEL.get(pk_01.length),
@@ -190,7 +221,7 @@ def list_packets(path):
     # --InputSlot [Auto|Manual|Cas1|Cas2|Cas3|Cas4]
     #
     with open(path, mode='rb') as f:
-        for p in CAPTStream2(f).packets():
+        for p in CAPTStream2(f)._packets():
             print(p)
 
 ## OG CAPTStream
