@@ -17,7 +17,163 @@ CAPT Job File and Stream Toolkit (captstream.py) Unit Tests
 
 from unittest import TestCase
 import captstream
+from io import BytesIO
 import os.path
+
+class CAPTStream2PacketTests(TestCase):
+    test_data = BytesIO(b''.join((
+        b'\x0a\x67\x0a\x00\x31\x32\x33\x34\x35\x36',  # I @ 0B
+        b'\x0b\x67\x06\x00\x00\x00',         # II  @ 10B
+        b'\x0c\x67\x08\x00\x41\x42\x43\x44', # III @ 16B
+        b'\x0c\x67\x08\x00\x45\x46\x47\x48', # IV  @ 24B
+        b'\x0c\x67\x08\x00\x49\x4a\x4b\x4c', # V   @ 32B
+        b'\x0d\x67\x04\x00',                 # VI   @ 36B
+        b'\x0b\x67\x06\x00\x01\x00',         # VII  @ 40B
+        b'\x0c\x67\x08\x00\x4d\x4e\x4f\x50', # VIII @ 46B
+        b'\x0c\x67\x08\x00\x51\x52\x53\x54', # IX   @ 54B
+        b'\x0d\x67\x04\x00'                  # X    @ 62B
+    ))) # BytesIO(b''.join((a,b,c...)))
+    test_cstream = captstream.CAPTStream2(test_data)
+    test_pkts = tuple(test_cstream._packets())
+
+    def test_packets(self):
+        # verify CAPTStream2._packets() under expected conditions
+        stats = ((
+            x.ptype,
+            x.offset,
+            x.data_offset(),
+            x.length,
+            x.data_length
+        ) for x in self.test_pkts)
+        expected = (             # expected test results
+            (0x670A, 0, 4, 10, 6),  # 1. 0x670A @ 0x00, 10B
+            (0x670B, 10, 14, 6, 2),  # 2. 0x670B @ 0x0A, 6B
+            (0x670C, 16, 20, 8, 4),  # 3. 0x670C @ 0x10, 8B
+            (0x670C, 24, 28, 8, 4),  # 4. 0x670C @ 0x18, 8B
+            (0x670C, 32, 36, 8, 4),  # 5. 0x670C @ 0x20, 8B
+            (0x670D, 40, None, 4, 0), # 6. 0x670D @ 0x28, 4B
+            (0x670B, 44, 48, 6, 2),  # 7. 0x670B @ 0x2C, 6B
+            (0x670C, 50, 54, 8, 4),  # 8. 0x670C @ 0x32, 8B
+            (0x670C, 58, 62, 8, 4),  # 9. 0x670C @ 0x3A, 8B
+            (0x670D, 66, None, 4, 0), # 10. 0x670D @ 0x42, 4B
+        )
+        for x,y in zip(stats, expected):
+            self.assertEqual(x,y)
+
+    def test_get_packet_data(self):
+        pkt_data = (
+            self.test_cstream.get_packet_data(p)
+            for p in self.test_pkts
+        )
+        expected = (
+            b'\x31\x32\x33\x34\x35\x36',  # I
+            b'\x00\x00',         # II
+            b'\x41\x42\x43\x44', # III
+            b'\x45\x46\x47\x48', # IV
+            b'\x49\x4a\x4b\x4c', # V
+            None,                # VI
+            b'\x01\x00',         # VII
+            b'\x4d\x4e\x4f\x50', # VIII
+            b'\x51\x52\x53\x54', # IX
+            None,                # X
+        )
+        for x,y in zip(pkt_data, expected):
+            self.assertEqual(x,y)
+
+class CAPTStream2PageTests(TestCase):
+    test_data = BytesIO(b''.join((
+        # valid job file structure, malformed dummy packets
+        b'\x01\x00\x06\x00\x0d\x0c', # job file header   @ 0x00
+        b'\x02\x00\x06\x00\x01\x70', # page metadata (1) @ 0x06
+        b'\xa0\xd0\x06\x00\x01\x70', # IC_BEGIN_PAGE     @ 0x0C
+        b'\xa1\xd0\x04\x00',         # IC_BEGIN_DATA     @ 0x12
+        b'\xa0\xc0\x06\x00\x51\x51', # IC_VIDEO_DATA     @ 0x16
+        b'\xa0\xc0\x06\x00\x51\x51', # IC_VIDEO_DATA     @ 0x1C
+        b'\xa2\xd0\x04\x00',         # IC_END_PAGE       @ 0x22
+        b'\x04\x00\x06\x00\x01\x70', # EOP in file   (1) @ 0x26
+        b'\x02\x00\x06\x00\x02\x70', # page metadata (2) @ 0x2C
+        b'\xa0\xd0\x06\x00\x02\x70', # IC_BEGIN_PAGE     @ 0x32
+        b'\xa1\xd0\x04\x00',         # IC_BEGIN_DATA     @ 0x38
+        b'\xa0\xc0\x06\x00\x52\x52', # IC_VIDEO_DATA     @ 0x3C
+        b'\xa0\xc0\x06\x00\x52\x52', # IC_VIDEO_DATA     @ 0x42
+        b'\xa2\xd0\x04\x00',         # IC_END_PAGE       @ 0x48
+        b'\x04\x00\x06\x00\x02\x70', # EOP in file   (2) @ 0x4C
+        b'\x02\x00\x06\x00\x03\x70', # page metadata (3) @ 0x52
+        b'\xa0\xd0\x06\x00\x03\x70', # IC_BEGIN_PAGE     @ 0x58
+        b'\xa1\xd0\x04\x00',         # IC_BEGIN_DATA     @ 0x5E
+        b'\xa0\xc0\x06\x00\x53\x53', # IC_VIDEO_DATA     @ 0x62
+        b'\xa0\xc0\x06\x00\x53\x53', # IC_VIDEO_DATA     @ 0x68
+        b'\xa2\xd0\x04\x00',         # IC_END_PAGE       @ 0x6E
+        b'\x04\x00\x06\x00\x03\x70', # EOP in file   (3) @ 0x72
+        b'\x03\x00\x04\x00'          # end of stream     @ 0x78
+    )))
+    test_cstream = captstream.CAPTStream2(test_data)
+
+    def test_get_page_first(self):
+        content = tuple(
+            (x.ptype, x.offset, self.test_cstream.get_packet_data(x))
+            for x in self.test_cstream.get_page(1)
+        )
+        expected = (
+            (0x2, 6, b'\x01\x70'),
+            (0xD0A0, 12, b'\x01\x70'),
+            (0xD0A1, 18, None),
+            (0xC0A0, 22, b'\x51\x51'),
+            (0xC0A0, 28, b'\x51\x51'),
+            (0xD0A2, 34, None),
+            (0x4, 38, b'\x01\x70'),
+        )
+        for x,y in zip(content,expected):
+            self.assertEqual(x,y)
+
+    def test_get_page_middle(self):
+        content = tuple(
+            (x.ptype, x.offset, self.test_cstream.get_packet_data(x))
+            for x in self.test_cstream.get_page(2)
+        )
+        expected = (
+            (0x2, 44, b'\x02\x70'),
+            (0xD0A0, 50, b'\x02\x70'),
+            (0xD0A1, 56, None),
+            (0xC0A0, 60, b'\x52\x52'),
+            (0xC0A0, 66, b'\x52\x52'),
+            (0xD0A2, 72, None),
+            (0x4, 76, b'\x02\x70'),
+        )
+        for x,y in zip(content,expected):
+            self.assertEqual(x,y)
+
+    def test_get_page_last(self):
+        content = tuple(
+            (x.ptype, x.offset, self.test_cstream.get_packet_data(x))
+            for x in self.test_cstream.get_page(3)
+        )
+        expected = (
+            (0x2, 82, b'\x03\x70'),
+            (0xD0A0, 88, b'\x03\x70'),
+            (0xD0A1, 94, None),
+            (0xC0A0, 98, b'\x53\x53'),
+            (0xC0A0, 104, b'\x53\x53'),
+            (0xD0A2, 110, None),
+            (0x4, 114, b'\x03\x70'),
+        )
+        for x,y in zip(content,expected):
+            self.assertEqual(x,y)
+
+    def test_refresh_page_index(self):
+        self.test_cstream.refresh_page_index()
+        idxs = tuple((
+            (x[0].ptype, x[0].offset, x[1].ptype, x[1].offset)
+            for x in self.test_cstream.pages
+        ))
+        expected = (
+            #startpkt type, startpkt offset, endpkt type, endpkt offset
+            (0x2, 6, 0x4, 38),
+            (0x2, 44, 0x4, 76),
+            (0x2, 82, 0x4, 114),
+        )
+        for x,y in zip(idxs, expected):
+            self.assertEqual(x,y)
 
 class CAPTStreamTests(TestCase):
 
