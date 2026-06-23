@@ -12,42 +12,63 @@ Delta encoding is applied on lines following the key line. The delta encoding is
 
 Lines can be ended early with an End-of-Line (EOL) opcode that fills the rest of the line with bytes copied from the previous line. Whole lines can be repeated with a lone EOL opcode.
 
-An image can contain multiple key lines if necessary, but a single key line is sufficient to encode images of the average document.
+An image can contain multiple key lines if necessary, but a single key line is sufficient to encode the average document.
 
-The compressed stream is terminated with an End-of-Page opcode. Unlike lines, pages cannot end early. All lines on a page must be encoded. If the content on a page doesn't reach the bottom, or if the page is a blank page, the first blank line must be encoded as a key line, and each subsequent line must be encoded by EOL opcodes.
+The compressed stream is terminated with an End-of-Page opcode. Unlike lines, pages cannot end early. All lines on a page must be encoded. If the content on a page doesn't reach the bottom, or if the page is a blank page, the blank space must be filled by a key line followed by a series of EOL opcodes.
 
-No SCoA colour devices are known to exist. Canon has claimed that full colour support was only introduced with the newer and distinct Hi-SCoA codec in a product brochure for the LBP2410.
+No SCoA colour devices are known to exist. Canon has claimed that full colour support was only introduced with the newer and distinct Hi-SCoA codec in product brochures for the LBP2410.
 
 # Opcodes
 
 > Note: The SCoA format is not yet completely charted. Information in this section may be subject to change.
 
 ## Syntax
-All opcodes are bit-length, but aligned to start and end on byte boundaries. This allows the bit stream to be processed as a byte stream. **Multi-byte opcodes are read in big-endian order**.
+SCoA uses a variable-length encoding system with interleaved opcodes and arguments, resulting in a byte-aligned code.
+Codes are read in **big-endian order**.
 
 ### Data Opcodes
-These opcodes encode data in a compressed form, and are shown in base-2 (`0b`). There are three parts to data opcodes: the *operation*, *counts* and *data*. Operations and counts are interleaved in the first bytes of the opcode. The data always comes next. **All counts are unsigned integers**.
+These opcodes store data in a compressed form. Opcodes are composed of an *operation*, and *arguments* (or operands). Arguments may be counts or literals. Counts determine the number of repetitions, or the length of an uncompressed string of literals, while literals are written to the output stream.
 
-#### One-byte opcode example
+Operations and counts are interleaved and packed in the first bytes of the opcode and are always followed by literals. **All counts are unsigned integers**.
+
+#### Example of Operation and Counts in One byte
 
 `0b00XXXYYY` `S0..Sn`
 
-The operation in this case is `0b00`. The first count is the 3-bit value `0bXXX` and the second count is the 3-bit value `0bYYY`. The multi-byte string `S0` to `Sn` is the data.
+* Operation: `0b00`
+* Count X: `0bXXX` 
+* Count Y: `0bYYY`
+* Literals: string `S0` to `Sn`
 
-#### Two-byte opcode examples
+#### Examples of Operation and Counts in Two bytes
 
-`0b100WWWWW` `0b00YYYXXX` `S0..Sn`: operation `0b10000`, 8-bit count `0bWWWWWXXX` and 3-bit count `0bYYY`, data bytes `S0` to `Sn`
+`0b100WWWWW` `0b00YYYXXX` `S0..Sn`
 
-`0b101WWWWW` `0b00YYYXXX` `C`: operation `0b10100`, 8-bit count `0bWWWWWXXX` and 3-bit count `0bYYY`, datum byte `C`
+* Operation `0b10000`
+* Count W+X: `0bWWWWWXXX`
+* Count Y: `0bYYY`
+* Literals: string `S0` to `Sn`
 
-#### Three-byte opcode example
+`0b101WWWWW` `0b00YYYXXX` `C`
 
-`0b100UUUUU` `0b101WWWWW` `0b11XXXYYY` `C`: operation `0b10010111`, 8-bit count `0bUUUUUYYY`, 8-bit count `0bWWWWWXXX`, datum byte `C`
+* Operation `0b10100`
+* Count W+X: `0bWWWWWXXX`
+* Count Y: `0bYYY`
+* Literal: `C`
+
+#### Example of Operation and Counts in Three bytes
+
+`0b100UUUUU` `0b101WWWWW` `0b11XXXYYY` `C`
+
+* Operation: `0b10010111`
+* Count U+Y: `0bUUUUUYYY`
+* Count W+X: `0bWWWWWXXX`
+* Literal: `C`
 
 ### Control Opcodes
 Control opcodes affect the decompressor's behaviour and are shown in base-16 (`0x`). These commands have no counts and cannot be compressed (although having a compressible EOL would have further increased efficiency).
 
-## Opcode Table
+## Operations
 > Please note that the opcodes have not yet been thoroughly verified.
 
 There are three data decoding operations:
@@ -57,7 +78,7 @@ There are three data decoding operations:
 
 The `+` operator herein concatenates the results of the operations.
 
-| Opcode | Operation | Canonical Name (TBC) | Operation Description |
+| Opcode | Operation | Canonical Name (TBC) | Description |
 |--|--|--|--|
 | `0b00YYYXXX` `S0..Sn` | `P(0bXXX) + N(0bYYY, S0..Sn)` | `CopyThenRaw` | `0bXXX` (0-7) bytes from previous line then `0bYYY` (1-7) uncompressed bytes `S0` to `Sn` |
 | `0b01YYYXXX` `C` | `P(0bXXX) + R(0bYYY, C)` | `CopyThenRepeat` | `0bXXX` (0-7) bytes from previous line then `0bYYY` (1?-7) repeats of `C` (minimum `R()` count may be 2, not 1; please see [this comment](https://github.com/agalakhov/captdriver/issues/33#issuecomment-1874751389) in #33 in the original repo)|
@@ -76,6 +97,9 @@ The `+` operator herein concatenates the results of the operations.
 | `0x9f`/`0b10011111` | `n + 248` | `Extend` | Add 248 to the byte count for `P()+N()` and `P()+R()` commands.<br>Can be used N times in a row for 248 * N bytes.<br>Identical to the first byte in `P(n)+N(m, S0..Sm)` and `P(n)+R(m, C)` where `n` is from 248 to 255. |
 
 > TODO: account for missing opcodes discussed in [issue 3](https://github.com/mounaiban/studycapt/issues/3)
+
+## Transmission
+Encoded images are sent to the printer inside `IC_VIDEO_DATA` (`0xC0A0`) packets when the printer device is connected via USB or TCP/IP/Ethernet.
 
 ## Notes
 
@@ -100,7 +124,7 @@ Copies yet another 7 from the previous line.
 The behaviour of using `P()` on the first line is unknown. As such, it is advised to assume an imaginary "previous line" entirely of zero `(0x00)` bytes before the first line on the compressed image.
 
 ### Extending `P()` Byte Count With the 0x9f Opcode
-The `P()` byte in `P()+N()` and `P()+R()` may be extended beyond 255 bytes by using one or more `0x9f` commands at the start of the opcode. For example, `0x9f` `0b10000001` `0b01010010` `C` dumps 258 bytes from the previous line followed by two repeats of `C`. Likewise, `0x9f` `0x9f` `0b10000001` `0b01010010` `C` does the same with 506 bytes. Only two `0x9f`'s are necessary to reach the end of the line on an 8.5 inch wide page at 600 dpi.
+`P()` in `P()+N()` and `P()+R()` may be extended beyond 255 bytes by using one or more `0x9f` commands at the start of the opcode. For example, `0x9f` `0b10000001` `0b01010010` `C` dumps 258 bytes from the previous line followed by two repeats of `C`. Likewise, `0x9f` `0x9f` `0b10000001` `0b01010010` `C` does the same with 506 bytes. Only two `0x9f`'s are necessary to reach the end of the line on an 8.5 inch wide page at 600 dpi.
 
 ### Unknown Cases
 It is yet to be known how `captfilter` or printers handle the following:
