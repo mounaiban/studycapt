@@ -4,7 +4,7 @@ This document is about the raster codec used by select Canon laser printers, usi
 For information on the distinct Hi-SCoA codec on later CAPT printers made from the mid-2000s to the early-2010s, please see part 1.4 and 3 of the [SPECS](https://github.com/agalakhov/captdriver/blob/master/SPECS) file in the tree.
 
 # Overview
-SCoA (expanded to _Smart Compression Architecture_ in some marketing materials) is a compression codec for 1-bit (bi-level) monochrome images which makes use of [Run-Length Encoding](https://en.wiktionary.org/wiki/run-length_encoding#English) (RLE) and [Delta Encoding](https://en.wikipedia.org/wiki/Delta_encoding).
+SCoA (expanded to _Smart Compression Architecture_ in some marketing materials) is a lossless[^lossless] compression codec for 1-bit (bi-level) monochrome images which makes use of [Run-Length Encoding](https://en.wiktionary.org/wiki/run-length_encoding#English) (RLE) and [Delta Encoding](https://en.wikipedia.org/wiki/Delta_encoding).
 
 Images begin with a "key" or "seed" line. Pixels on each line are processed at the byte level, each byte representing eight 1-bit pixels (like [Netpbm P4](https://netpbm.sourceforge.net/doc/pbm.html)). The first key line is taken from the first line of the image, and is run length encoded; contiguous repeated bytes are replaced by a single byte with a repeat count.
 
@@ -17,6 +17,8 @@ An image can contain multiple key lines if necessary, but a single key line is s
 The compressed stream is terminated with an End-of-Page opcode. Unlike lines, pages cannot end early. All lines on a page must be encoded. If the content on a page doesn't reach the bottom, or if the page is a blank page, the blank space must be filled by a key line followed by a series of EOL opcodes.
 
 No SCoA colour devices are known to exist. Canon has claimed that full colour support was only introduced with the newer and distinct Hi-SCoA codec in product brochures for the LBP2410.
+
+[^lossless]: SCoA is lossless at the *raster* level. All loss of information or fidelity during conversion to a printable format occur during the rasterisation process. There is no loss of detail from the final raster.
 
 # Opcodes
 
@@ -74,14 +76,14 @@ Control opcodes affect the decompressor's behaviour and are shown in base-16 (`0
 There are three data decoding operations:
 * `P(n)`: Copy `n` bytes from the previous line, at the same offset/position as the current line
 * `R(n, C)`: Repeat, `n` times, the single byte `C`
-* `N(n, S0...Sn)`: Write `n` new uncompressed bytes `S0` to `Sn`.
+* `N(n, S0...Sn)`: Write `n` new uncompressed bytes `S0` to `Sn`. Officially known as `Raw`.
 
 The `+` operator herein concatenates the results of the operations.
 
 | Opcode | Operation | Canonical Name (TBC) | Description |
 |--|--|--|--|
 | `0b00YYYXXX` `S0..Sn` | `P(0bXXX) + N(0bYYY, S0..Sn)` | `CopyThenRaw` | `0bXXX` (0-7) bytes from previous line then `0bYYY` (1-7) uncompressed bytes `S0` to `Sn` |
-| `0b01YYYXXX` `C` | `P(0bXXX) + R(0bYYY, C)` | `CopyThenRepeat` | `0bXXX` (0-7) bytes from previous line then `0bYYY` (1?-7) repeats of `C` (minimum `R()` count may be 2, not 1; please see [this comment](https://github.com/agalakhov/captdriver/issues/33#issuecomment-1874751389) in #33 in the original repo)|
+| `0b01YYYXXX` `C` | `P(0bXXX) + R(0bYYY, C)` | `CopyThenRepeat` | `0bXXX` (0-7) bytes from previous line then `0bYYY` (1?-7) repeats of `C` <br>Note: (minimum `R()` count may be 2, not 1; please see [this comment](https://github.com/agalakhov/captdriver/issues/33#issuecomment-1874751389) in #33 in the original repo)|
 | `0b11XXXYYY` `C` `S0..Sn` | `R(0bXXX, C) + N(0bYYY, S0..Sn)` | `RepeatThenRaw` | `0bXXX` (1-7) repeats or `C`, then `0bYYY` (1-7) uncompressed bytes `S0` to `Sn`. |
 | `0b100WWWWW` `0b00YYYXXX` `S0..Sn` | `P(0bWWWWXXX) + N(0bYYY, S0..Sn)` | `CopyThenRawLong` | `0bWWWWWXXX` (8-255) bytes from previous line, then `0bYYY` (1-7) uncompressed bytes `S0` to `Sn`. |
 | `0b100WWWWW` `0b01YYYXXX` `C` | `P(0bWWWWXXX) + R(0bYYY, C)` | `CopyThenRepeatLong` | `0bWWWWWXXX` (8-255) bytes from previous line, then `0bYYY` (1-7) repeats of `C`. |
@@ -94,7 +96,7 @@ The `+` operator herein concatenates the results of the operations.
 | `0x40` | `NOP` | `NOP` | Dummy non-op. |
 | `0x41` | `EOL` | `EOL` | End of line. Fill the rest of the current line with bytes from the previous line from the same offset on the current line |
 | `0x42` | `EOP` | `EOP` | End of page/picture. Don't decompress anything past this point. |
-| `0x9f`/`0b10011111` | `n + 248` | `Extend` | Add 248 to the byte count for `P()+N()` and `P()+R()` commands.<br>Can be used N times in a row for 248 * N bytes.<br>Identical to the first byte in `P(n)+N(m, S0..Sm)` and `P(n)+R(m, C)` where `n` is from 248 to 255. |
+| `0x9f`/`0b10011111` | `n + 248` | `Extend` | Add 248 to the byte count for `P()` in `P()+N()` and `P()+R()` commands.<br>Can be used N times in a row for 248 * N bytes.<br>Identical to the first byte in `P(n)+N(m, S0..Sm)` and `P(n)+R(m, C)` where `n` is from 248 to 255. |
 
 > TODO: account for missing opcodes discussed in [issue 3](https://github.com/mounaiban/studycapt/issues/3)
 
