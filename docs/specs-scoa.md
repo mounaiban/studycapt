@@ -87,7 +87,7 @@ The `+` operator herein concatenates the results of the operations.
 | `0b100WWWWW` `0b01YYYXXX` `C` | `P(0bWWWWXXX) + R(0bYYY, C)` | `CopyThenRepeatLong` | `0bWWWWWXXX` (8-255) bytes from previous line, then `0bYYY` (1-7) repeats of `C`. |
 | `0b101WWWWW` `0b00XXXYYY` `C` `S0..Sn` | `R(0bWWWWXXX, C) + N(0bYYY, S0..Sn)` | `RepeatThenRawLong` | `0bWWWWWXXX` (8-255) repeats of `C`, then `0bYYY` (1-7) uncompressed bytes `S0` to `Sn` |
 | `0b101XXXXX` `0b01WWWYYY` `C` `S0..Sn` | `R(0bWWW, C) + N(0bXXXXXYYY, S0..Sn)` | `RepeatThenRawLong` | `0bWWW` (1-7) repeats of `C`, then `0bXXXXXYYY` (8-255) uncompressed bytes `S0` to `Sn`. |
-| `0b101XXXXX` `0b10YYYWWW` `C`| `P(0bWWW) + P(0bXXXXXYYY, C)` | `CopyThenRepeatLong` | `0bWWW` (0-7) bytes from the previous line, then `0bXXXXXYYY` (8-255) repeats of `C` |
+| `0b101XXXXX` `0b10YYYWWW` `C`| `P(0bWWW) + R(0bXXXXXYYY, C)` | `CopyThenRepeatLong` | `0bWWW` (0-7) bytes from the previous line, then `0bXXXXXYYY` (8-255) repeats of `C` |
 | `0b101XXXXX` `0b11YYYWWW` `S0..Sn` | `P(0bWWW) + N(0bXXXXXYYY, S0..Sn)` | `CopyThenRawLong` | `0bWWW` (0-7) bytes from the previous line, then `0bXXXXXYYY` (8-255) uncompressed bytes `S0` to `Sn` |
 | `0b100UUUUU` `0b101XXXXX` `0b10YYYWWW` `C` | `P(0bUUUUUWWW) + R(0bXXXXXYYY, C)` | `CopyThenRepeatLong` | `0bUUUUUWWW` (8-255) bytes from previous line, then `0bXXXXXYYY` (8-255) repeats of `C`. |
 | `0b100UUUUU` `0b101XXXXX` `0b11YYYWWW` `S0..Sn` | `P(0bUUUUUWWW) + R(0bXXXXXYYY, S0..Sn)` | `CopyThenRawLong` | `0bUUUUUWWW` (8-255) bytes from previous line then `0bXXXXXYYY` (8-255) uncompressed bytes `S0` to `Sn`.  |
