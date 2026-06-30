@@ -10,6 +10,7 @@ printers.
 # 0.1 released 2022/05/16
 # 0.2 completed 2022/06/13 (opcode support believed to be complete)
 # 0.3 completed 2022/06/17 (successfully decompress all test pages to date)
+# 0.4 WIP (refactored 2nd Edition SCoADecoder)
 #
 # PUBLIC DOMAIN, NO RIGHTS RESERVED
 #
@@ -32,8 +33,244 @@ printers.
 #   requried to confirm the accuracy of the decoder.
 #
 import pdb
+from enum import Enum
+from io import BytesIO
 from itertools import chain
 from os.path import expanduser
+
+## Revised SCoA Decoder (2026)
+## ===========================
+class SCoACommand(Enum):
+        COPY_RAW         = 0b00     # CopyThenRaw (<=7B)
+        COPY_REPEAT      = 0b01     # CopyThenRepeat (<=7B)
+        REPEAT_RAW       = 0b11     # RepeatThenRaw (<=7B)
+        LONG_COPY_RAW    = 0b10000  # Copy(8-255B)ThenRawLong
+        LONG_COPY_REPEAT = 0b10001  # Copy(8-255B)ThenRepeatLong
+        LONG_REPEAT_RAW  = 0b10100  # Repeat(8-255B)ThenRawLong
+        REPEAT_LONG_RAW  = 0b10101  # RepeatThenRaw(8-255B)Long
+        COPY_LONG_REPEAT = 0b10110  # CopyThenRepeat(8-255B)Long
+        COPY_LONG_RAW    = 0b10111  # CopyThenRaw(8-255B)Long
+        LONG_COPY_LONG_REPEAT = 0b10010110
+            # Copy(8-255B)ThenRepeat(8-255B)Long
+        LONG_COPY_LONG_RAW    = 0b10010111
+            # Copy(8-255B)ThenRaw(8-255B)Long
+        EXTEND = 0b10011111 # 0x9F
+        NOP    = 0b01000000 # 0x40, == /COPY_REPEAT?copy=0&repeat=0
+        EOL    = 0b01000001 # 0x41, == /COPY_REPEAT?copy=1&repeat=0
+        EOP    = 0b01000010 # 0x42  == /COPY_REPEAT?copy=2&repeat=0
+
+class SCoADecoder2:
+    """
+    Decoder for SCoA-compressed 1-bit (8px/byte) rasters.
+    This is a refactored version of the original SCoADecoder,
+    designed to be easier to understand and debug.
+
+    Please note that this decoder still does not perform
+    extraction from CAPT packets, please use the CAPTStream
+    module to extract the compressed data from job files.
+    """
+    MASK_COUNT_L = 0b00111000
+    MASK_COUNT_R = 0b00000111
+    MASK_3MS = 0b11100000  # three most significant
+    MASK_2MS = 0b11000000  # two most significant
+    MASK_COUNT = 0b00011111
+    EXTEND_BYTES = 248
+
+    def __init__(self, bpl, in_offset=0, out_count=0):
+        self._data_offset = in_offset
+        self._buffer = BytesIO()  # line buffer/memory
+        self._precount_a = 0
+        self._precount_b = 0
+        self._precount_copy = 0
+        self.bytes_per_line = bpl
+        self.eop = False   # when True, prevent decode()
+        self.input_bytes = in_offset
+        self.output_bytes = 0
+
+    def _eop(self):
+        """
+        Set the End of Page flag, which when set will prevent
+        any further decoding by raising an Exception
+        """
+        self.eop = True
+
+    def _exe(self, count_cp, count_rep, count_raw, ib):
+        """
+        Executes commands, writes decoded bytes to buffer,
+        returns buffer offset and length of written bytes.
+        """
+        # This method assumes, based on observation, that
+        # copies always come before repeats, which in turn
+        # always come before uncompressed/raw bytes.
+        #
+        if self._buffer.tell() >= self.bytes_per_line:
+            self._buffer.seek(0)
+        off = self._buffer.tell()
+        to_write = b''
+        # prepare repeat bytes
+        if count_rep:
+            rbyte = next(ib).to_bytes(1)
+            to_write = b''.join((to_write, rbyte*count_rep))
+        # prepare raw bytes
+        if count_raw:
+            for y in range(count_raw):
+                rawbyte = next(ib).to_bytes(1)
+                to_write = b''.join((to_write, rawbyte))
+        tbytes = count_cp + count_rep + count_raw
+        d = self.bytes_per_line - off   # distance from end of buffer
+        if tbytes > d:
+            raise Exception(
+                "Buffer overflow", hex(self.input_offset())
+            )
+        else:
+            self._buffer.seek(off+count_cp)
+            self._buffer.write(to_write)
+        self.input_bytes += min(count_rep, 1) + count_raw
+        self.output_bytes += tbytes
+        return (off, tbytes)
+
+    def _reset_cmd_counters(self):
+        self._precount_a = 0
+        self._precount_b = 0
+        self._precount_copy = 0
+
+    def current_line(self):
+        return self.output_bytes // self.bytes_per_line
+
+    def decode(self, ib):
+        """
+        Given an iter yielding bytes of SCoA-encoded data,
+        return an iter yielding bytes of the decompressed
+        1-bpp raster.
+
+        This method merely identifies opcodes, which are
+        then passed on to _exe() for decoding. Further
+        details on how SCoA codes are decoded are described
+        in _exe().
+
+        Note that the decoded bytes has to fit within the
+        number of bytes reported by remaining_line_bytes(),
+        or a RuntimeError will be raised.
+
+        The remaining line bytes counter resets after the
+        counter reaches zero.
+
+        """
+        # Structure of data commands is as follows:
+        #
+        # short: 0bCCCLLLRRR
+        #   -> op: 0bCCC, count_L: 0bLLL, count_r: 0bRRR
+        # long: 0bCCCAAAAA 0bDDLLRRR
+        #   -> op: 0bCCCDD, precount_a: 0bAAAAA
+        # longer: 0bCCCAAAAA 0bDDDBBBBB 0bEELLLRRR
+        #   -> op: 0bCCCDDDEE, precount_b: 0bBBBBB
+        #
+        # Precounts a and b are bitwise OR-ed with counts L
+        # or r, depending on the operation, to decode counts
+        # from 8 to 255.
+        #
+        # NOTE: official op names are now in use;
+        #   Old => Copy, New => Raw
+        if self.eop:
+            raise Exception('Decoding past end of page')
+        prefix = 0
+        self.input_bytes -= 1
+        for b in ib:
+            self.input_bytes += 1
+            if prefix > 0xFF:
+                raise Exception(
+                    'Command decoding aborted', hex(self.input_bytes)
+                )
+            # handle control codes
+            if prefix==0 and b in SCoACommand:
+                cmd = SCoACommand(b)
+                if cmd == SCoACommand.EOP:
+                    self._eop()
+                    return None
+                elif cmd == SCoACommand.EXTEND:
+                    self._precount_copy += self.EXTEND_BYTES
+                elif cmd == SCoACommand.NOP:
+                    pass
+                elif cmd == SCoACommand.EOL:
+                    read_off, read_len = self._exe(
+                        self.remaining_line_bytes(), 0, 0, None
+                    )
+                    self._buffer.seek(read_off)
+                    yield self._buffer.read(read_len)
+                else:
+                    msg = "TODO: Command {}".format(hex(b))
+                    raise NotImplementedError(
+                        msg, self.input_bytes
+                    )
+                continue
+            # detect if a complete data op has been found
+            with_2ms = (prefix << 2) | ((b&self.MASK_2MS) >> 6)
+            read_off = 0
+            read_len = 0
+            if with_2ms in SCoACommand:
+                L = (b&self.MASK_COUNT_L)>>3  # left count
+                r = (b&self.MASK_COUNT_R)     # right count
+                cmd = SCoACommand(with_2ms)
+                if cmd==SCoACommand.COPY_RAW:
+                    cc = self._precount_copy + r
+                    read_off, read_len = self._exe(cc, 0, L, ib)
+                elif cmd==SCoACommand.COPY_REPEAT:
+                    cc = self._precount_copy + r
+                    read_off, read_len = self._exe(cc, L, 0, ib)
+                elif cmd==SCoACommand.REPEAT_RAW:
+                    read_off, read_len = self._exe(0, L, r, ib)
+                elif cmd==SCoACommand.LONG_COPY_RAW:
+                    cc = self._precount_copy + (self._precount_a|r)
+                    read_off, read_len = self._exe(cc, 0, L, ib)
+                elif cmd==SCoACommand.LONG_COPY_REPEAT:
+                    cc = self._precount_copy + (self._precount_a|r)
+                    read_off, read_len = self._exe(cc, L, 0, ib)
+                elif cmd==SCoACommand.LONG_REPEAT_RAW:
+                    repc = self._precount_a|L
+                    read_off, read_len = self._exe(0, repc, r, ib)
+                elif cmd==SCoACommand.REPEAT_LONG_RAW:
+                    rawc = self._precount_a|r
+                    read_off, read_len = self._exe(0, L, rawc, ib)
+                elif cmd==SCoACommand.COPY_LONG_REPEAT:
+                    cc = self._precount_copy + r
+                    repc = self._precount_a|L
+                    read_off, read_len = self._exe(cc, repc, 0, ib)
+                elif cmd==SCoACommand.COPY_LONG_RAW:
+                    cc = self._precount_copy + r
+                    rawc = self._precount_a|L
+                    read_off, read_len = self._exe(cc, 0, rawc, ib)
+                elif cmd==SCoACommand.LONG_COPY_LONG_REPEAT:
+                    cc = self._precount_copy + (self._precount_a|r)
+                    repc = self._precount_b|L
+                    read_off, read_len = self._exe(cc, repc, 0, ib)
+                elif cmd==SCoACommand.LONG_COPY_LONG_RAW:
+                    cc = self._precount_copy + (self._precount_a|r)
+                    rawc = self._precount_b|L
+                    read_off, read_len = self._exe(cc, 0, rawc, ib)
+                else:
+                    raise Exception('Unknown command',self.input_bytes)
+                self._buffer.seek(read_off)
+                yield self._buffer.read(read_len)
+                self._reset_cmd_counters()
+                prefix = 0
+            else:
+                prefix = (prefix << 3) | ((b&self.MASK_3MS) >> 5)
+                if not self._precount_a:
+                    self._precount_a = (b&self.MASK_COUNT) << 3
+                else:
+                    self._precount_b = (b&self.MASK_COUNT) << 3
+
+    def input_offset(self):
+        return self._data_offset + self.input_bytes
+
+    def remaining_line_bytes(self):
+        remain = self.bytes_per_line - self._buffer.tell()
+        if remain < 0:
+            raise RuntimeError('Line buffer larger than declared')
+        return remain
+
+## OG SCoADecoder
+## ===============
 
 SCOA_OLD_NEW = 0b00 << 6 # uncompressed bytes (old+new)
 SCOA_OLD_REPEAT = 0b01 << 6
