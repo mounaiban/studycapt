@@ -39,13 +39,13 @@ import pdb
 import os.path
 from argparse import ArgumentParser
 from collections import OrderedDict
-from itertools import batched, dropwhile
-from struct import unpack
+from itertools import batched, chain, dropwhile
+from struct import calcsize, unpack
 from sys import stdin, stdout
 from rasterdump import PBMWriter, RasterDump
 
 try:
-    from scoa import SCoADecoder
+    from scoa import SCoADecoder, SCoADecoder2
 except ModuleNotFoundError:
     SCoADecoder = None
 
@@ -96,6 +96,9 @@ class CAPTStream2:
     #
     HEADER_LENGTH = 4
     SIZE_TO_TBL_MODEL = {24:'1', 40:'2|3'}
+    PTYPE_IC_BEGIN_PAGE = 0xD0A0
+    PTYPE_IC_VIDEO_DATA = 0xC0A0
+    PTYPE_IC_VIDEO_DATA_HS = 0x8000
     PTYPE_JOB_INFO = 0x01
     PTYPE_PAGE_METADATA = 0x02
     PTYPE_END_PAGE = 0x04
@@ -148,6 +151,7 @@ class CAPTStream2:
             return None
         jinfo = self.get_packet_data(pk_01)
         return {
+            'creator': 'captfilter',
             'CNTblModel': self.SIZE_TO_TBL_MODEL.get(pk_01.length),
             'dump': jinfo
         }
@@ -170,8 +174,18 @@ class CAPTStream2:
         if not self.pages: self.refresh_page_index()
         lastp = len(self.pages)
         if n > lastp: raise IndexError('last page is {}'.format(lastp))
-        pse = self.pages[n-1]
-        return tuple(self._packets(pse[0].offset, pse[1].offset))
+        spck, epck = self.pages[n-1]
+        infopkt = next(
+            (x for x in self._packets(spck.offset, epck.offset)
+             if x.ptype == self.PTYPE_IC_BEGIN_PAGE)
+        )
+        infobytes = self.get_packet_data(infopkt)
+        types = (self.PTYPE_IC_VIDEO_DATA, self.PTYPE_IC_VIDEO_DATA_HS)
+        imgpkts = tuple(
+            y for y in self._packets(spck.offset, epck.offset)
+             if y.ptype in types
+        )
+        return CAPTPage(infobytes, imgpkts)
 
     def get_page_starts_and_ends(self):
         # returns a tuple of validated and paired page start
@@ -249,6 +263,69 @@ class CAPTPacket:
     def data_offset(self):
         if self.data_length <= 0: return None
         else: return self.offset + self.MIN_SIZE
+
+class CAPTPage:
+    """
+    Reference to a single page in a CAPT stream, for use
+    with the CAPTStream2 class.
+    """
+    ICBP_FIELD_NAMES = (
+        'unknown_0',
+        'CAPTDeviceID',
+        'PaperSizeID',
+        'unknown_5',
+        'MediaSource',
+        'unknown_7',
+        'TonerDensityA',
+        'TonerDensityB',
+        'TonerDensityC',
+        'TonerDensityD',
+        'PaperType',
+        'unknown_13', 'unknown_15','unknown_17',
+        'SuperSmooth',
+        'TonerSaving',
+        'unknown_20', 'unknown_21',
+        'MarginW',
+        'MarginH',
+        'LineSize',
+        'Height',
+        'PaperW',
+        'PaperH',
+        'SpecialMode',
+        'unknown_35',
+        'FuserMode',
+        'unknown_37',
+    )
+    ICBP_STRUCT_FMT = '<2sHBBBBBBBBB2s2sBBBBBHHHHHHBBBB'
+    # ICBP -> IC_BEGIN_PAGE
+
+    def __init__(self, icbp_packet_bytes, data_packets):
+        d = icbp_packet_bytes
+        L = len(d)
+        cs = calcsize(self.ICBP_STRUCT_FMT)
+        if L < cs:
+            d = b''.join((d, b'\x00'*(cs-L)))
+        elif L > cs:
+            d = d[:cs]
+        ud = unpack(self.ICBP_STRUCT_FMT, d)
+        self._page_info = dict(zip(self.ICBP_FIELD_NAMES,ud))
+        self.data_packets = data_packets
+
+    def get_line_size(self):
+        """
+        Returns the number of bytes per line.
+        This is equal to 1/8th the number of pixels in the
+        horizontal direction.
+        """
+        return self._page_info.get('LineSize')
+
+    def get_height(self):
+        """
+        Returns the number of lines in page.
+        This is equal to the number of pixels in the
+        vertical direction.
+        """
+        return self._page_info.get('Height')
 
 def list_packets(path):
     # List packets in job file at path

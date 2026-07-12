@@ -20,6 +20,29 @@ import captstream
 from io import BytesIO
 import os.path
 
+class CAPTStream2ErrorTests(TestCase):
+    # verification of error handling systems
+    def test_stream_id_mismatch(self):
+        # Test Stream A
+        data_a = BytesIO(b'\x0a\x67\x06\x00\x70\x01')
+        stream_a = captstream.CAPTStream2(data_a)
+        packet_a = tuple(stream_a._packets())[0]
+
+        # Test Stream B
+        data_b = BytesIO(b'\x0a\x67\x06\x00\x70\x01')
+        stream_b = captstream.CAPTStream2(data_b)
+        packet_b = tuple(stream_b._packets())[0]
+
+        self.assertNotEqual(
+            stream_a.stream_id(), stream_b.stream_id()
+        )
+        self.assertRaises(
+            Exception, stream_b.get_packet_data, packet_a
+        )
+        self.assertRaises(
+            Exception, stream_a.get_packet_data, packet_b
+        )
+
 class CAPTStream2PacketTests(TestCase):
     test_data = BytesIO(b''.join((
         b'\x0a\x67\x0a\x00\x31\x32\x33\x34\x35\x36',  # I @ 0B
@@ -80,7 +103,8 @@ class CAPTStream2PacketTests(TestCase):
         for x,y in zip(pkt_data, expected):
             self.assertEqual(x,y)
 
-class CAPTStream2PageTests(TestCase):
+class CAPTPageTests(TestCase):
+    # NOTE: this includes a test for CAPTStream2.refresh_page_index()
     test_data = BytesIO(b''.join((
         # valid job file structure, malformed dummy packets
         b'\x01\x00\x06\x00\x0d\x0c', # job file header   @ 0x00
@@ -109,55 +133,46 @@ class CAPTStream2PageTests(TestCase):
     )))
     test_cstream = captstream.CAPTStream2(test_data)
 
-    def test_get_page_first(self):
-        content = tuple(
+    def test_get_page_data_packets_first(self):
+        page = self.test_cstream.get_page(1)
+        packets = tuple(
             (x.ptype, x.offset, self.test_cstream.get_packet_data(x))
-            for x in self.test_cstream.get_page(1)
+             for x in page.data_packets
         )
         expected = (
-            (0x2, 6, b'\x01\x70'),
-            (0xD0A0, 12, b'\x01\x70'),
-            (0xD0A1, 18, None),
             (0xC0A0, 22, b'\x51\x51'),
             (0xC0A0, 28, b'\x51\x51'),
-            (0xD0A2, 34, None),
-            (0x4, 38, b'\x01\x70'),
         )
-        for x,y in zip(content,expected):
+        self.assertEqual(len(packets), len(expected))
+        for x,y in zip(packets,expected):
             self.assertEqual(x,y)
 
     def test_get_page_middle(self):
-        content = tuple(
+        page = self.test_cstream.get_page(2)
+        packets = tuple(
             (x.ptype, x.offset, self.test_cstream.get_packet_data(x))
-            for x in self.test_cstream.get_page(2)
+             for x in page.data_packets
         )
         expected = (
-            (0x2, 44, b'\x02\x70'),
-            (0xD0A0, 50, b'\x02\x70'),
-            (0xD0A1, 56, None),
             (0xC0A0, 60, b'\x52\x52'),
             (0xC0A0, 66, b'\x52\x52'),
-            (0xD0A2, 72, None),
-            (0x4, 76, b'\x02\x70'),
         )
-        for x,y in zip(content,expected):
+        self.assertEqual(len(packets), len(expected))
+        for x,y in zip(packets,expected):
             self.assertEqual(x,y)
 
     def test_get_page_last(self):
-        content = tuple(
+        page = self.test_cstream.get_page(3)
+        packets = tuple(
             (x.ptype, x.offset, self.test_cstream.get_packet_data(x))
-            for x in self.test_cstream.get_page(3)
+             for x in page.data_packets
         )
         expected = (
-            (0x2, 82, b'\x03\x70'),
-            (0xD0A0, 88, b'\x03\x70'),
-            (0xD0A1, 94, None),
             (0xC0A0, 98, b'\x53\x53'),
             (0xC0A0, 104, b'\x53\x53'),
-            (0xD0A2, 110, None),
-            (0x4, 114, b'\x03\x70'),
         )
-        for x,y in zip(content,expected):
+        self.assertEqual(len(packets), len(expected))
+        for x,y in zip(packets,expected):
             self.assertEqual(x,y)
 
     def test_refresh_page_index(self):
