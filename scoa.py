@@ -76,15 +76,14 @@ class SCoADecoder2:
     MASK_COUNT = 0b00011111
     EXTEND_BYTES = 248
 
-    def __init__(self, bpl, in_offset=0, out_count=0):
-        self._data_offset = in_offset
+    def __init__(self, bpl):
         self._buffer = BytesIO()  # line buffer/memory
         self._precount_a = 0
         self._precount_b = 0
         self._precount_copy = 0
         self.bytes_per_line = bpl
         self.eop = False   # when True, prevent decode()
-        self.input_bytes = in_offset
+        self.input_offset = 0
         self.output_bytes = 0
 
     def _eop(self):
@@ -125,7 +124,7 @@ class SCoADecoder2:
         else:
             self._buffer.seek(off+count_cp)
             self._buffer.write(to_write)
-        self.input_bytes += min(count_rep, 1) + count_raw
+        self.input_offset += min(count_rep, 1) + count_raw
         self.output_bytes += tbytes
         return (off, tbytes)
 
@@ -137,7 +136,7 @@ class SCoADecoder2:
     def current_line(self):
         return self.output_bytes // self.bytes_per_line
 
-    def decode(self, ib):
+    def decode(self, ib, in_off=None):
         """
         Given an iter yielding bytes of SCoA-encoded data,
         return an iter yielding bytes of the decompressed
@@ -174,12 +173,13 @@ class SCoADecoder2:
         if self.eop:
             raise Exception('Decoding past end of page')
         prefix = 0
-        self.input_bytes -= 1
+        if in_off is not None: self.input_offset = in_off-1
+        else: self.input_offset -= 1
         for b in ib:
-            self.input_bytes += 1
+            self.input_offset += 1
             if prefix > 0xFF:
                 raise Exception(
-                    'Command decoding aborted', hex(self.input_bytes)
+                    'Command decoding aborted', hex(self.input_offset)
                 )
             # handle control codes
             if prefix==0 and b in SCoACommand:
@@ -200,7 +200,7 @@ class SCoADecoder2:
                 else:
                     msg = "TODO: Command {}".format(hex(b))
                     raise NotImplementedError(
-                        msg, self.input_bytes
+                        msg, self.input_offset
                     )
                 continue
             # detect if a complete data op has been found
@@ -248,7 +248,7 @@ class SCoADecoder2:
                     rawc = self._precount_b|L
                     read_off, read_len = self._exe(cc, 0, rawc, ib)
                 else:
-                    raise Exception('Unknown command',self.input_bytes)
+                    raise Exception('Unknown command',self.input_offset)
                 self._buffer.seek(read_off)
                 yield self._buffer.read(read_len)
                 self._reset_cmd_counters()
@@ -259,9 +259,6 @@ class SCoADecoder2:
                     self._precount_a = (b&self.MASK_COUNT) << 3
                 else:
                     self._precount_b = (b&self.MASK_COUNT) << 3
-
-    def input_offset(self):
-        return self._data_offset + self.input_bytes
 
     def remaining_line_bytes(self):
         remain = self.bytes_per_line - self._buffer.tell()
