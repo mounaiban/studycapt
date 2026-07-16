@@ -121,6 +121,14 @@ class RasterDump:
                 )
             )
 
+    def __str__(self):
+        return "{}: {}x{} {}bpp".format(
+            type(self).__name__, self.width, self.height, self.bpp
+        )
+
+    def __repr__(self):
+        return f"<{self.__str__()}>"
+
     def _raster_position(self):
         return self.raster.tell()
 
