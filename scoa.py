@@ -132,7 +132,7 @@ class SCoADecoder2:
         d = self.bytes_per_line - off   # distance from end of buffer
         if tbytes > d:
             raise Exception(
-                "Buffer overflow", hex(self.input_offset())
+                "Buffer overflow", hex(self.input_offset)
             )
         else:
             self._buffer.seek(off+count_cp)
