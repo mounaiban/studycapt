@@ -185,7 +185,7 @@ class CAPTStream2:
             y for y in self._packets(spck.offset, epck.offset)
              if y.ptype in types
         )
-        return CAPTPage(infobytes, imgpkts)
+        return CAPTPage(infobytes, imgpkts, n)
 
     def get_page_starts_and_ends(self):
         # returns a tuple of validated and paired page start
@@ -299,7 +299,7 @@ class CAPTPage:
     ICBP_STRUCT_FMT = '<2sHBBBBBBBBB2s2sBBBBBHHHHHHBBBB'
     # ICBP -> IC_BEGIN_PAGE
 
-    def __init__(self, icbp_packet_bytes, data_packets):
+    def __init__(self, icbp_packet_bytes, data_packets, n):
         d = icbp_packet_bytes
         L = len(d)
         cs = calcsize(self.ICBP_STRUCT_FMT)
@@ -310,6 +310,7 @@ class CAPTPage:
         ud = unpack(self.ICBP_STRUCT_FMT, d)
         self._page_info = dict(zip(self.ICBP_FIELD_NAMES,ud))
         self.data_packets = data_packets
+        self.number = n
 
     def get_line_size(self):
         """
