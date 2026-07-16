@@ -335,6 +335,64 @@ class CAPTPage:
         """
         return self._page_info.get('Height')
 
+class PageExtractionFlow:
+    # Workflow for extracting pages from CAPT job files
+    # NOTE: Only SCoA-compressed job files are currently supported
+    def __init__(self, job_file_path, out_path):
+        if type(job_file_path) is not str and type(out_path) is not str:
+            raise TypeError
+        f = open(job_file_path, mode='rb')
+        self._cstream = CAPTStream2(f)
+        self.decoder = None
+        self.draster = None     # decoded raster
+        self.writer = None
+        self.out_path = out_path
+        self.select_page(1)
+
+    def set_out_path(self, path):
+        if type(path) is not str: raise TypeError
+        self.out_path = path
+
+    def select_page(self, page):
+        page = self._cstream.get_page(page)
+        w = page.get_line_size()*8
+        self.decoder = SCoADecoder2(page.get_line_size())
+        self.draster = RasterDump(w, page.get_height())
+        self.writer = PBMWriter(self.draster, self.out_path, True)
+        self.page = page
+
+    def get_decoded_packet_iter(self, packet_index):
+        # return an iter of decoded bytes from a page packet
+        packet = self.page.data_packets[packet_index]
+        ib = iter(self._cstream.get_packet_data(packet))
+        return self.decoder.decode(ib, in_off=packet.data_offset())
+
+    def draw_position(self):
+        return self.draster.draw_position()
+
+    def page_number(self):
+        return self.page.number
+
+    def page_packet_count(self):
+        return len(self.page.data_packets)
+
+    def dump_decoded_packet(self, packet_index):
+        # dump decoded packet into RasterDump
+        idec = self.get_decoded_packet_iter(packet_index)
+        self.draster.put_raster_bytes(b''.join(idec))
+
+    def write_out_page(self):
+        self.draster.clear()
+        for i in range(self.page_packet_count()):
+            self.dump_decoded_packet(i)
+        self.writer.write_out()
+
+    def write_out(self):
+        self.writer.write_out()
+
+    def close_stream(self):
+        self._cstream.stream.close()
+
 def list_packets(path):
     # List packets in job file at path
     # To obtain a job file, run:
