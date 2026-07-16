@@ -38,6 +38,25 @@ class RasterDumpTests(TestCase):
         self.assertEqual(out, b'\x67\x67\x67\x67\x00\x00\x00\x00')
         self.assertEqual(raster._raster_position(), 4)
 
+    def test_draw_position(self):
+        # tests on 32x32x1bpp raster
+        CASES = {
+            'pos_init': {'bytes': 0, 'expected': (0,0)},
+            'pos_mid_row_zero': {'bytes': 2, 'expected': (16,0)},
+            'pos_end_row_zero': {'bytes': 4, 'expected': (0,1)},
+            'pos_raster_middle': {'bytes': 62, 'expected': (16,15)},
+            'pos_raster_end': {'bytes':128, 'expected':(31,31)}
+        }
+        for t in CASES.keys():
+            specs = CASES[t]
+            with self.subTest(t):
+                raster = rasterdump.RasterDump(w=32, h=32)
+                n = specs['bytes']
+                raster.put_raster_bytes(b'\x67' * n)
+                coords = raster.draw_position()
+                expected = specs['expected']
+                self.assertEqual(coords, expected)
+
     def test_get_raster(self):
         # tests for get_raster()
         # test format description

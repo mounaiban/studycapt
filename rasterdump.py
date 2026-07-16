@@ -27,7 +27,7 @@ Replaces blob_pic.
 from colorsys import hls_to_rgb
 from io import BytesIO
 from itertools import chain, cycle
-from math import ceil
+from math import ceil, floor
 from os import access, F_OK
 
 # Helper Functions
@@ -139,6 +139,23 @@ class RasterDump:
     def clear(self):
         self.raster.truncate(0)
         self.raster.seek(0)
+
+    def draw_position(self):
+        # Return the pixel coordinates on the raster
+        # where the next pixel will be placed.
+        # Given a raster w pixels wide and h pixels high,
+        # the upper left of the raster is (0,0) and the
+        # lower right is (w-1, h-1).
+        i = self._raster_position()
+        # by_px = self.bpp/8
+        px = floor(self._raster_position()//(self.bpp/8))
+        x = px%self.width
+        y = px//self.width
+        if(y >= self.height):
+            # if position is past the last row assume that
+            # the last position was reached
+            return (self.width-1, self.height-1)
+        else: return (x,y)
 
     def put_raster_bytes(self, b, count=1):
         if type(b) is not bytes:
