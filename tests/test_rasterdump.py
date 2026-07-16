@@ -29,6 +29,15 @@ class RasterDumpTests(TestCase):
         self.assertEqual(out, b'\x00\x00\x00\x00\x00\x00\x00\x00')
         self.assertEqual(raster._raster_position(), 0)
 
+    def test_clear_then_put_bytes(self):
+        raster = rasterdump.RasterDump(w=8, h=8)
+        raster.put_raster_bytes(b'\x42', count=8)
+        raster.clear()
+        raster.put_raster_bytes(b'\x67', count=4)
+        out = raster.get_raster()
+        self.assertEqual(out, b'\x67\x67\x67\x67\x00\x00\x00\x00')
+        self.assertEqual(raster._raster_position(), 4)
+
     def test_get_raster(self):
         # tests for get_raster()
         # test format description

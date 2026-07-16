@@ -130,6 +130,7 @@ class RasterDump:
 
     def clear(self):
         self.raster.truncate(0)
+        self.raster.seek(0)
 
     def put_raster_bytes(self, b, count=1):
         if type(b) is not bytes:
