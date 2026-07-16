@@ -251,6 +251,36 @@ class ScoaDecoder2Tests(TestCase):
                 'input': b'\x09\x02',
                 'expected': b'\x9a\x02'
             }, # 1cp + 1raw
+            'decode_copy_one_raw_2': {
+                'bpl': self.BPL,
+                'init': b'\x9a' * self.BPL,
+                'input': b'\x11\x02\x03',
+                'expected': b'\x9a\x02\x03'
+            },
+            'decode_copy_4_raw_2': {
+                'bpl': self.BPL,
+                'init': b'\x9a' * self.BPL,
+                'input': b'\x14\x02\x03',
+                'expected': b'\x9a\x9a\x9a\x9a\x02\x03'
+            },
+            'decode_copy_5_raw_2': {
+                'bpl': self.BPL,
+                'init': b'\x9a' * self.BPL,
+                'input': b'\x15\x02\x03',
+                'expected': b'\x9a\x9a\x9a\x9a\x9a\x02\x03'
+            },
+            'decode_copy_6_raw_2': {
+                'bpl': self.BPL,
+                'init': b'\x9a' * self.BPL,
+                'input': b'\x16\x02\x03',
+                'expected': b'\x9a\x9a\x9a\x9a\x9a\x9a\x02\x03'
+            },
+            'decode_copy_7_raw_2': {
+                'bpl': self.BPL,
+                'init': b'\x9a' * self.BPL,
+                'input': b'\x17\x02\x03',
+                'expected': b'\x9a\x9a\x9a\x9a\x9a\x9a\x9a\x02\x03'
+            },
             'decode_copy_raw_max': {
                 'bpl': self.BPL,
                 'init': b'\x9a' * self.BPL,
@@ -260,6 +290,12 @@ class ScoaDecoder2Tests(TestCase):
                     b'\x02\x03\x04\x05\x06\x07\x08'
                 )),
             }, # 7cp + 7raw
+            'decode_copy_zero_raw_2': {
+                'bpl': self.BPL,
+                'init': b'\x9a' * self.BPL,
+                'input': b'\x10\x02\x03',
+                'expected': b'\x02\x03',
+            }, # 0cp + 2raw
             'decode_copy_repeat_one': {
                 'bpl': self.BPL,
                 'init': b'\x9a' * self.BPL,

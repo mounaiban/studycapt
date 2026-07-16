@@ -194,27 +194,11 @@ class SCoADecoder2:
                 raise Exception(
                     'Command decoding aborted', hex(self.input_offset)
                 )
-            # handle control codes
-            if prefix==0 and b in SCoACommand:
+            # handle 0x9F control code
+            if prefix==0 and b==SCoACommand.EXTEND.value:
                 cmd = SCoACommand(b)
-                if cmd == SCoACommand.EOP:
-                    self._eop()
-                    return None
-                elif cmd == SCoACommand.EXTEND:
-                    self._precount_copy += self.EXTEND_BYTES
-                elif cmd == SCoACommand.NOP:
-                    pass
-                elif cmd == SCoACommand.EOL:
-                    read_off, read_len = self._exe(
-                        self.remaining_line_bytes(), 0, 0, None
-                    )
-                    self._buffer.seek(read_off)
-                    yield self._buffer.read(read_len)
-                else:
-                    msg = "TODO: Command {}".format(hex(b))
-                    raise NotImplementedError(
-                        msg, self.input_offset
-                    )
+                self.command = cmd
+                self._precount_copy += self.EXTEND_BYTES
                 continue
             # detect if a complete data op has been found
             with_2ms = (prefix << 2) | ((b&self.MASK_2MS) >> 6)
@@ -224,12 +208,31 @@ class SCoADecoder2:
                 L = (b&self.MASK_COUNT_L)>>3  # left count
                 r = (b&self.MASK_COUNT_R)     # right count
                 cmd = SCoACommand(with_2ms)
+                self.command = cmd
                 if cmd==SCoACommand.COPY_RAW:
                     cc = self._precount_copy + r
                     read_off, read_len = self._exe(cc, 0, L, ib)
                 elif cmd==SCoACommand.COPY_REPEAT:
+                    # Control codes are herein interpreted as
+                    # special cases of CopyThenRepeat.
+                    # The precount_copy variable is assumed to
+                    # never be less than 248
                     cc = self._precount_copy + r
-                    read_off, read_len = self._exe(cc, L, 0, ib)
+                    if not L and not cc:
+                        # NOP (0x40)
+                        continue
+                    elif not L and cc==1:
+                        # EOL (0x41)
+                        read_off, read_len = self._exe(
+                            self.remaining_line_bytes(), 0, 0, None
+                        )
+                    elif not L and cc==2:
+                        # EOP (0x42)
+                        self._eop()
+                        return None
+                    else:
+                        # CopyThenRepeat
+                        read_off, read_len = self._exe(cc, L, 0, ib)
                 elif cmd==SCoACommand.REPEAT_RAW:
                     read_off, read_len = self._exe(0, L, r, ib)
                 elif cmd==SCoACommand.LONG_COPY_RAW:
