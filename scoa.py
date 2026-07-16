@@ -46,6 +46,7 @@ class SCoACommand(Enum):
         REPEAT_RAW       = 0b11     # RepeatThenRaw (<=7B)
         LONG_COPY_RAW    = 0b10000  # Copy(8-255B)ThenRawLong
         LONG_COPY_REPEAT = 0b10001  # Copy(8-255B)ThenRepeatLong
+        LONG_COPY_ONLY   = 0b10011  # Copy(8-255B)?-only opcode
         LONG_REPEAT_RAW  = 0b10100  # Repeat(8-255B)ThenRawLong
         REPEAT_LONG_RAW  = 0b10101  # RepeatThenRaw(8-255B)Long
         COPY_LONG_REPEAT = 0b10110  # CopyThenRepeat(8-255B)Long
@@ -54,6 +55,8 @@ class SCoACommand(Enum):
             # Copy(8-255B)ThenRepeat(8-255B)Long
         LONG_COPY_LONG_RAW    = 0b10010111
             # Copy(8-255B)ThenRaw(8-255B)Long
+        COPY_ONLY             = 0b111111110
+           # Accessed from RepeatThenRaw with 0 rep or 0 raw
         EXTEND = 0b10011111 # 0x9F
         NOP    = 0b01000000 # 0x40, == /COPY_REPEAT?copy=0&repeat=0
         EOL    = 0b01000001 # 0x41, == /COPY_REPEAT?copy=1&repeat=0
@@ -221,12 +224,13 @@ class SCoADecoder2:
                     if not L and not cc:
                         # NOP (0x40)
                         continue
-                    elif not L and cc==1:
+                    elif not L and r==1:
                         # EOL (0x41)
+                        self.command = SCoACommand.EOL
                         read_off, read_len = self._exe(
-                            self.remaining_line_bytes(), 0, 0, None
+                            self.remaining_line_bytes(), 0, 0, ib
                         )
-                    elif not L and cc==2:
+                    elif not L and r==2:
                         # EOP (0x42)
                         self._eop()
                         return None
@@ -234,13 +238,28 @@ class SCoADecoder2:
                         # CopyThenRepeat
                         read_off, read_len = self._exe(cc, L, 0, ib)
                 elif cmd==SCoACommand.REPEAT_RAW:
-                    read_off, read_len = self._exe(0, L, r, ib)
+                    if not L:
+                        self.command = SCoACommand.COPY_ONLY
+                        cc = self._precount_copy + r
+                        # Copy-only command with zero left count
+                        read_off, read_len = self._exe(cc, 0, 0, ib)
+                    elif not r:
+                        self.command = SCoACommand.COPY_ONLY
+                        cc = self._precount_copy + L
+                        # Copy-only command with zero right count
+                        read_off, read_len = self._exe(cc, 0, 0, ib)
+                    else:
+                        # RepeatThenRaw
+                        read_off, read_len = self._exe(0, L, r, ib)
                 elif cmd==SCoACommand.LONG_COPY_RAW:
                     cc = self._precount_copy + (self._precount_a|r)
                     read_off, read_len = self._exe(cc, 0, L, ib)
                 elif cmd==SCoACommand.LONG_COPY_REPEAT:
                     cc = self._precount_copy + (self._precount_a|r)
                     read_off, read_len = self._exe(cc, L, 0, ib)
+                elif cmd==SCoACommand.LONG_COPY_ONLY:
+                    cc = self._precount_copy + (self._precount_a|L+r)
+                    read_off, read_len = self._exe(cc, 0, 0, ib)
                 elif cmd==SCoACommand.LONG_REPEAT_RAW:
                     repc = self._precount_a|L
                     read_off, read_len = self._exe(0, repc, r, ib)
