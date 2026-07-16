@@ -10,7 +10,7 @@ printers.
 # 0.1 released 2022/05/16
 # 0.2 completed 2022/06/13 (opcode support believed to be complete)
 # 0.3 completed 2022/06/17 (successfully decompress all test pages to date)
-# 0.4 WIP (refactored 2nd Edition SCoADecoder)
+# 0.42 completed 2026/07/16 (refactored & expanded SCoADecoder2)
 #
 # PUBLIC DOMAIN, NO RIGHTS RESERVED
 #
