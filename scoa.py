@@ -118,8 +118,7 @@ class SCoADecoder2:
         # copies always come before repeats, which in turn
         # always come before uncompressed/raw bytes.
         #
-        if self._buffer.tell() >= self.bytes_per_line:
-            self._buffer.seek(0)
+        self._reset_buffer_position()
         off = self._buffer.tell()
         to_write = b''
         # prepare repeat bytes
@@ -148,6 +147,10 @@ class SCoADecoder2:
         self._precount_a = 0
         self._precount_b = 0
         self._precount_copy = 0
+
+    def _reset_buffer_position(self):
+        if self._buffer.tell() >= self.bytes_per_line:
+            self._buffer.seek(0)
 
     def current_line(self):
         return self.output_bytes // self.bytes_per_line
@@ -288,6 +291,7 @@ class SCoADecoder2:
                 yield self._buffer.read(read_len)
                 self._reset_cmd_counters()
                 prefix = 0
+                self._reset_buffer_position()
             else:
                 prefix = (prefix << 3) | ((b&self.MASK_3MS) >> 5)
                 if not self._precount_a:

@@ -421,7 +421,34 @@ class ScoaDecoder2Tests(TestCase):
 
     def test_decode_multi_op(self):
         # two inputs, two outputs
-        pass
+        CASES = {
+            'double_eol': {
+                'bpl': self.BPL,
+                'init': b'\x9a' * self.BPL,
+                'input_a': b'\x41',
+                'input_b': b'\x41',
+                'expected_a': b''.join((
+                    b'\x9a\x9a\x9a\x9a\x9a\x9a\x9a\x9a',
+                    b'\x9a\x9a\x9a\x9a\x9a\x9a\x9a\x9a',
+                )),
+                'expected_b': b''.join((
+                    b'\x9a\x9a\x9a\x9a\x9a\x9a\x9a\x9a',
+                    b'\x9a\x9a\x9a\x9a\x9a\x9a\x9a\x9a',
+                )),
+            }
+        }
+        for c in CASES.keys():
+            with self.subTest(c):
+                spec = CASES[c]
+                decoder = scoa.SCoADecoder2(spec['bpl'])
+                init = spec.get('init')
+                if init: decoder._buffer = BytesIO(spec['init'])
+                ib_a = iter(spec['input_a'])
+                out_a = b''.join(decoder.decode(ib_a))
+                ib_b = iter(spec['input_b'])
+                out_b = b''.join(decoder.decode(ib_b))
+                self.assertEqual(out_a, spec['expected_a'])
+                self.assertEqual(out_b, spec['expected_b'])
 
     def test_decode_input_offset(self):
         CASES = {
