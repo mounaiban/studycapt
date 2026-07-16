@@ -162,7 +162,10 @@ class RasterDump:
             raise TypeError("b must be a byte array (bytes)")
         inp = b*count
         # clip off bytes that reach past end of raster
-        c = min( len(inp), max(0,self.raster_size-self._raster_position()) )
+        c = min(
+            len(inp),
+            max(0,self.raster_size-self._raster_position())
+        )
         if c:
             self.raster.write(inp[:c])
 
@@ -176,7 +179,9 @@ class RasterDump:
         present = self.raster.read(self.raster_size)
         absent = (
             next(pattern)
-            for x in range(max(self.raster_size-self._raster_position(),0))
+            for x in range(
+                max(self.raster_size-self._raster_position(),0)
+            )
         )
         return b''.join( (present, bytes(absent)) )
 
