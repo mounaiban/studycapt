@@ -82,9 +82,22 @@ class SCoADecoder2:
         self._precount_b = 0
         self._precount_copy = 0
         self.bytes_per_line = bpl
+        self.command = None
         self.eop = False   # when True, prevent decode()
         self.input_offset = 0
         self.output_bytes = 0
+
+    def __str__(self):
+        return "{}: {}Bpl, in_offset: {}, Command:{}, EOP: {}".format(
+            type(self).__name__,
+            self.bytes_per_line,
+            hex(self.input_offset),
+            self.command,
+            self.eop
+        )
+
+    def __repr__(self):
+        return f"<{self.__str__()}>"
 
     def _eop(self):
         """
