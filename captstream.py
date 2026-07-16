@@ -10,6 +10,7 @@ and transport format for print data.
 # Written by Moses Chong
 # 0.1 released 2022/05/16
 # 0.4 completed 2022/07/26 (add stdin support)
+# 0.67 completed 2026/07/16 (new class model feat. CAPTStream2)
 #
 # PUBLIC DOMAIN, NO RIGHTS RESERVED
 #
@@ -126,7 +127,7 @@ class CAPTStream2:
                 )
                 yield pack
                 self.stream.seek(self.stream.tell()+pack.data_length)
-                    # skip data stream
+                    # skip payload to next packet
         except ValueError:
             return
 
@@ -170,8 +171,6 @@ class CAPTStream2:
         else: return None
 
     def get_page(self, n):
-        # Returns a tuple of packets containing data
-        # for page n; n=1 is the first page.
         if n<1: raise IndexError('n must be 1 or greater')
         if not self.pages: self.refresh_page_index()
         lastp = len(self.pages)
