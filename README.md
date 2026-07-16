@@ -65,10 +65,7 @@ to ``captfilter`` to ``captstream.py``:
 # The command can take a long time to complete, a process monitor
 # can be improvised as a status monitor. Check the CPU and RAM
 # usage for gs, captfilter and python.
-# If the command freezes, try pressing CTRL-D.
-# Multiple attempts at this command may be required for some pages
-# on some systems.
-gs -r600 -dSAFER -dNOPAUSE -dNOPROMPT -sDEVICE=pgmraw -sOutputFile=- example.pdf |\
+gs -r600 -dSAFER -dBATCH -dNOPAUSE -dNOPROMPT -dQUIET -sDEVICE=pgmraw -sOutputFile=- example.pdf |\
 captfilter --CNTblModel=0 --Resolution=600 |\
 ./captstream.py extract --num_pages=10 --out_format=p4 --out_file=example.pbm -
 ```
