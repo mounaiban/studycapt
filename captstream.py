@@ -95,7 +95,9 @@ class CAPTStream2:
     # Job files end with a 0x0003 packet.
     #
     HEADER_LENGTH = 4
-    SIZE_TO_TBL_MODEL = {24:'1', 40:'2|3'}
+    SIZE_TO_TBL_MODEL = {24:'1', 40:'2..3'}
+    PTYPE_BLACK_PLANE = 0xD0A4
+    PTYPE_BLACK_END = 0xC0A4
     PTYPE_IC_BEGIN_PAGE = 0xD0A0
     PTYPE_IC_VIDEO_DATA = 0xC0A0
     PTYPE_IC_VIDEO_DATA_HS = 0x8000
@@ -180,7 +182,12 @@ class CAPTStream2:
              if x.ptype == self.PTYPE_IC_BEGIN_PAGE)
         )
         infobytes = self.get_packet_data(infopkt)
-        types = (self.PTYPE_IC_VIDEO_DATA, self.PTYPE_IC_VIDEO_DATA_HS)
+        types = (
+            self.PTYPE_BLACK_PLANE,
+            self.PTYPE_BLACK_END,
+            self.PTYPE_IC_VIDEO_DATA,
+            self.PTYPE_IC_VIDEO_DATA_HS
+        )
         imgpkts = tuple(
             y for y in self._packets(spck.offset, epck.offset)
              if y.ptype in types
