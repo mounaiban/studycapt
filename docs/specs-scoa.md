@@ -71,7 +71,6 @@ Operations and counts are interleaved and packed in the first bytes of the opcod
 Control opcodes affect the decompressor's behaviour and are shown in base-16 (`0x`). These commands have no counts and cannot be compressed (although having a compressible EOL would have further increased efficiency).
 
 ## Operations
-> Please note that the opcodes have not yet been thoroughly verified.
 
 There are three data decoding operations:
 * `P(n)`: Copy `n` bytes from the previous line, at the same offset/position as the current line
@@ -85,8 +84,12 @@ The `+` operator herein concatenates the results of the operations.
 | `0b00YYYXXX` `S0..Sn` | `P(0bXXX) + N(0bYYY, S0..Sn)` | `CopyThenRaw` | `0bXXX` (0-7) bytes from previous line then `0bYYY` (1-7) uncompressed bytes `S0` to `Sn` |
 | `0b01YYYXXX` `C` | `P(0bXXX) + R(0bYYY, C)` | `CopyThenRepeat` | `0bXXX` (0-7) bytes from previous line then `0bYYY` (1?-7) repeats of `C` <br>Note: (minimum `R()` count may be 2, not 1; please see [this comment](https://github.com/agalakhov/captdriver/issues/33#issuecomment-1874751389) in #33 in the original repo)|
 | `0b11XXXYYY` `C` `S0..Sn` | `R(0bXXX, C) + N(0bYYY, S0..Sn)` | `RepeatThenRaw` | `0bXXX` (1-7) repeats or `C`, then `0bYYY` (1-7) uncompressed bytes `S0` to `Sn`. |
+| `0b11000YYY` | `P(0bYYY)` | `?` | `0bYYY` (1-7) bytes from the previous line only. Identical to `RepeatThenRaw` with one zero count |
+| `0b11XXX000` | `P(0bXXX)` | `?` | `0bXXX` (1-7) bytes from the previous line only. Identical to `RepeatThenRaw` with one zero count |
 | `0b100WWWWW` `0b00YYYXXX` `S0..Sn` | `P(0bWWWWXXX) + N(0bYYY, S0..Sn)` | `CopyThenRawLong` | `0bWWWWWXXX` (8-255) bytes from previous line, then `0bYYY` (1-7) uncompressed bytes `S0` to `Sn`. |
 | `0b100WWWWW` `0b01YYYXXX` `C` | `P(0bWWWWXXX) + R(0bYYY, C)` | `CopyThenRepeatLong` | `0bWWWWWXXX` (8-255) bytes from previous line, then `0bYYY` (1-7) repeats of `C`. |
+| `0b100WWWWW` `0b11000XXX` | `P(0bWWWWXXX)` | `?` | `0bWWWWWXXX` (8-255) bytes from the previous line only |
+| `0b100WWWWW` `0b11YYY000` | `P(0bWWWWYYY)` | `?` | `0bWWWWWYYY` (8-255) bytes from the previous line only |
 | `0b101WWWWW` `0b00XXXYYY` `C` `S0..Sn` | `R(0bWWWWXXX, C) + N(0bYYY, S0..Sn)` | `RepeatThenRawLong` | `0bWWWWWXXX` (8-255) repeats of `C`, then `0bYYY` (1-7) uncompressed bytes `S0` to `Sn` |
 | `0b101XXXXX` `0b01WWWYYY` `C` `S0..Sn` | `R(0bWWW, C) + N(0bXXXXXYYY, S0..Sn)` | `RepeatThenRawLong` | `0bWWW` (1-7) repeats of `C`, then `0bXXXXXYYY` (8-255) uncompressed bytes `S0` to `Sn`. |
 | `0b101XXXXX` `0b10YYYWWW` `C`| `P(0bWWW) + R(0bXXXXXYYY, C)` | `CopyThenRepeatLong` | `0bWWW` (0-7) bytes from the previous line, then `0bXXXXXYYY` (8-255) repeats of `C` |
@@ -98,7 +101,7 @@ The `+` operator herein concatenates the results of the operations.
 | `0x42` | `EOP` | `EOP` | End of page/picture. Don't decompress anything past this point. |
 | `0x9f`/`0b10011111` | `n + 248` | `Extend` | Add 248 to the byte count for `P()` in `P()+N()` and `P()+R()` commands.<br>Can be used N times in a row for 248 * N bytes.<br>Identical to the first byte in `P(n)+N(m, S0..Sm)` and `P(n)+R(m, C)` where `n` is from 248 to 255. |
 
-> TODO: account for missing opcodes discussed in [issue 3](https://github.com/mounaiban/studycapt/issues/3)
+The list of operations is believed to be largely complete at time of writing.
 
 ## Transmission
 Encoded images are sent to the printer inside `IC_VIDEO_DATA` (`0xC0A0`) packets when the printer device is connected via USB or TCP/IP/Ethernet.
@@ -161,3 +164,5 @@ Canon (2003-12-01). Laser Shot LBP-2410 Colour Laser Printer. ICAN0275. SHA256: 
 
 # Acknowledgements
 This document is based on findings by Nicolas Boichat and documented in the source files of the [LBP810 and 1120 driver](https://www.boichat.ch/nicolas/capt/).
+
+Thanks to [@deakjahn](https://github.com/deakjahn) for the tip on the copy-only operations in [Issue #3](https://github.com/mounaiban/studycapt/issues/3).
