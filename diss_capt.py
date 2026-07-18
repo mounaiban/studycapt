@@ -2,15 +2,17 @@
 Diss for CAPT
 -------------
 
-A standalone dissector for raw packet dumps from select Canon laser printers
-using the Canon Advanced Printing Technology (CAPT) command language and
-protocol. Converts raw packets into human-readable, or standard system-
-independent machine-readable formats.
+A collection of helper functions for programatically writing
+documentation about the Canon Advanced Printing Technology
+(CAPT) command language and protocol.
+
+The "diss" in the name comes from an earlier attempt at a
+system for programatically coding Lua dissectors for Wireshark.
 
 Authors
 =======
 Written by Moses Chong
-Second Edition released 2026/05/20
+Third Edition released 2026/07
 
 License
 =======
