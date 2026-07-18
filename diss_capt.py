@@ -27,10 +27,11 @@ along with this software. If not, see:
 
 """
 
-from itertools import chain, count
+from itertools import accumulate, chain, count
 from json import JSONEncoder
 from re import finditer
 from docs.a1a1 import DB
+from docs.capt_structs import OPCODES, TYPE_TO_SIZE
 
 # Utilities: Formatters
 
@@ -254,6 +255,54 @@ def db_to_json(db, indent=2):
     inner_dicts = (CAPTPacketExporter(x).dict() for x in db.values())
     outer_dict = dict(zip(keys, inner_dicts))
     return je.encode(outer_dict)
+
+# CAPT Packet Info Helpers
+def get_struct_names_and_fmt(pkt_type):
+    """
+    Get a list of field names for a given CAPT packet type
+    pkt_type, along with a format string to read a packet
+    using Python's struct module.
+
+    Returns a tuple (names, string) where names is a tuple
+    of names, and string is a struct format string.
+
+    Names are meant to line up with values in the struct
+    in order of appearance. For example:
+
+    ((age,height,weight), '<BLL')
+
+    means that there are three little-endian fields, from
+    left to right:
+
+    * age (8-bit unsigned integer),
+
+    * height (32-bit unsigned float),
+
+    * weight (32-bit unsigned float).
+
+    """
+    _, specs = OPCODES.get(pkt_type)
+    fmt = ''.join((f"{x[1]}" for x in specs))
+    names = tuple(x[0] for x in specs)
+    return (names, f"<{fmt}")
+
+def get_struct_report(pkt_type):
+    """
+    Returns a tuple of fields contained in the CAPT
+    packet type pkt_type containing, in this order:
+    field name, offset, field byte size.
+
+    """
+    _, specs = OPCODES.get(pkt_type)
+
+    def str_to_size(x):
+        if 's' in x: return int(x.split('s')[0])
+        else: return TYPE_TO_SIZE[x]
+    names = (x[0] for x in specs)
+    sizes = tuple(str_to_size(x[1]) for x in specs)
+    tmp = chain((0,),sizes)
+    offs = accumulate(tmp)
+    return tuple(zip(names, offs, sizes))
 
 # CAPTPacketExporter Class
 
