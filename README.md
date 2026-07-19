@@ -12,6 +12,10 @@ First and foremost, this is the place for study notes documenting research
 on CAPT printers, improvement of captdriver, test procedures and other
 miscellaneous information.
 
+### [autoinstall-ubuntu](autoinstall-ubuntu) (Autoinstall Files)
+A place for autoinstall files for setting up Ubuntu-based virtual machines
+used in studying CAPT-related software and debugging captdriver.
+
 ### [capt.lua](capt.lua) (CAPT/USB Dissector for Wireshark)
 A Lua dissector which annotates CAPT commands in packet captures in Wireshark.
 
