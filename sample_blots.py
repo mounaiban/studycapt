@@ -101,6 +101,27 @@ SQUARE_SIZE_DEFAULT = 64
 # 0x00FF00 and primary blue is 0x0000FF.
 #
 
+def expanded_bits(x, v):
+    """
+    Return an expanded binary representation of x
+    in the form of an 8-element tuple, where a zero
+    takes the place of an unset bit, and v takes the
+    place of a set bit.
+
+    e.g. fx(0xA6, 255) => (255, 0, 255, 0, 0, 255, 255, 0)
+    """
+    return tuple(ceil( (((0x80>>y)&x)/255) )*v for y in range(8))
+
+def _patterns(mask, v):
+    """
+    Return a tuple of 255 different expanded bit patterns
+    for use with the per-line pattern modes.
+    The patterns are simply derived from x OR mask, where x
+    runs from zero to 254. The value v takes the place of
+    set bits.
+    """
+    return tuple(expanded_bits(x|mask, v) for x in range(255))
+
 def _mk_fn_all_clear(w, h, **kwargs):
     """Create a function that yields pixels for a blank page"""
 
@@ -152,6 +173,36 @@ def _mk_fn_checkerboard(w, h, **kwargs):
             else: yield 0x0
 
     return _fn_checkerboard
+
+def _mk_fn_checkerboard_per_line_pattern(w, h, **kwargs):
+    v = kwargs.get('value', PX_VALUE_DEFAULT)
+    img_w = w
+    img_h = h
+    ssz = kwargs.get('square_size', SQUARE_SIZE_DEFAULT)
+    gx = kwargs.get('grate_x', w+1)
+    gy = kwargs.get('grate_y', h+1)
+    mleft = kwargs.get('margin_left', 0)
+    n_px = w * h
+    # TODO: mleft currently only erases pixels on the left side of
+    # the page. Maybe find a way to move the pattern to the right
+    # without changing it?
+    mask = 0xAA
+    patterns = _patterns(0xAA, v)
+
+    def _fn_checkerboard_per_line_pattern(i, n):
+        for j in range(min(n_px-i, n)):
+            i_px = i+j
+            y = i_px // img_w
+            x = i_px % img_w
+            odd_row = (y // ssz) & 0x01
+            odd_col = (x // ssz) & 0x01
+            if ((odd_row and odd_col) or (not odd_row and not odd_col))\
+               and (x%gx and y%gy)\
+               and x > mleft: yield patterns[y%255][x%8]
+            else: yield 0x0
+
+    return _fn_checkerboard_per_line_pattern
+
 
 def _mk_fn_gradient_horizontal(w, h, **kwargs):
     """
@@ -275,6 +326,51 @@ def _mk_fn_half_diagonal(w, h, **kwargs):
             else: yield 0x00
 
     return _fn_half_diagonal
+
+def _mk_fn_half_diagonal_per_line_pattern(w, h, **kwargs):
+    img_w = w
+    img_h = h
+    n_px = h * w
+    m = kwargs.get('m', h/w)
+    c = kwargs.get('c', 0)
+    v = kwargs.get('value', PX_VALUE_DEFAULT)
+    mleft = kwargs.get('margin_left', 0)
+    patterns = _patterns(0xAA, v)
+
+    def _fn_half_diagonal_per_line_pattern(i, n):
+        for x in range(min(n_px-i, n)):
+            i_px = i + x
+            x = i_px % img_w
+            y = i_px // img_w
+            if x > mleft and y >= (m * (x-mleft)) + c:
+                yield patterns[y%255][x%8]
+            # PROTIP: threshold line eq. is y == m * x + c
+            else: yield patterns[-y%255][-x%8]
+
+    return _fn_half_diagonal_per_line_pattern
+
+def _mk_fn_per_line_pattern(w, h, **kwargs):
+    """
+    Create a function that fills the entire page with
+    repeating horizontal edge-to-edge pixel patterns
+    that change every line. Patterns cycle every 255 lines.
+    """
+    img_w = w
+    img_h = h
+    n_px = h * w
+    v = kwargs.get('value', PX_VALUE_DEFAULT)
+    mleft = kwargs.get('margin_left', 0)
+    mask = 0xAA
+    patterns = _patterns(0xAA, v)
+
+    def _fn_all_set_per_line_pattern(i, n):
+        for x in range(min(n_px-i, n)):
+            i_px = i + x
+            x = i_px % img_w
+            y = i_px // img_w
+            yield patterns[y%255][x%8]
+
+    return _fn_all_set_per_line_pattern
 
 def _mk_fn_reversed_half_diagonal(w, h, **kwargs):
     """
@@ -497,8 +593,16 @@ PATTERNS_FNS = OrderedDict({
         'fn': _mk_fn_all_set,
         'raster_class': RasterPlotGray8
     },
+    'per-line-pattern': {
+        'fn': _mk_fn_per_line_pattern,
+        'raster_class': RasterPlot
+    },
     'checkerboard': {
         'fn': _mk_fn_checkerboard,
+        'raster_class': RasterPlot
+    },
+    'checkerboard-per-line-pattern': {
+        'fn': _mk_fn_checkerboard_per_line_pattern,
         'raster_class': RasterPlot
     },
     'circle': {
@@ -511,6 +615,10 @@ PATTERNS_FNS = OrderedDict({
     },
     'half-diagonal': {
         'fn': _mk_fn_half_diagonal,
+        'raster_class': RasterPlot
+    },
+    'half-diagonal-per-line-pattern': {
+        'fn': _mk_fn_half_diagonal_per_line_pattern,
         'raster_class': RasterPlot
     },
     'reversed-half-diagonal': {
