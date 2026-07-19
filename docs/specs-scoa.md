@@ -73,33 +73,33 @@ Control opcodes affect the decompressor's behaviour and are shown in base-16 (`0
 ## Operations
 
 There are three data decoding operations:
-* `P(n)`: Copy `n` bytes from the previous line, at the same offset/position as the current line
-* `R(n, C)`: Repeat, `n` times, the single byte `C`
-* `N(n, S0...Sn)`: Write `n` new uncompressed bytes `S0` to `Sn`. Officially known as `Raw`.
+* `copy(n)`: Copy `n` bytes from the previous line, at the same offset/position as the current line
+* `repeat(n, C)`: Repeat, `n` times, the single byte `C`
+* `raw(n, S0...Sn)`: Write `n` new uncompressed bytes `S0` to `Sn`.
 
 The `+` operator herein concatenates the results of the operations.
 
 | Opcode | Operation | Canonical Name (TBC) | Description |
 |--|--|--|--|
-| `0b00YYYXXX` `S0..Sn` | `P(0bXXX) + N(0bYYY, S0..Sn)` | `CopyThenRaw` | `0bXXX` (0-7) bytes from previous line then `0bYYY` (1-7) uncompressed bytes `S0` to `Sn` |
-| `0b01YYYXXX` `C` | `P(0bXXX) + R(0bYYY, C)` | `CopyThenRepeat` | `0bXXX` (0-7) bytes from previous line then `0bYYY` (1?-7) repeats of `C` <br>Note: (minimum `R()` count may be 2, not 1; please see [this comment](https://github.com/agalakhov/captdriver/issues/33#issuecomment-1874751389) in #33 in the original repo)|
-| `0b11XXXYYY` `C` `S0..Sn` | `R(0bXXX, C) + N(0bYYY, S0..Sn)` | `RepeatThenRaw` | `0bXXX` (1-7) repeats or `C`, then `0bYYY` (1-7) uncompressed bytes `S0` to `Sn`. |
-| `0b11000YYY` | `P(0bYYY)` | `?` | `0bYYY` (1-7) bytes from the previous line only. Identical to `RepeatThenRaw` with one zero count |
-| `0b11XXX000` | `P(0bXXX)` | `?` | `0bXXX` (1-7) bytes from the previous line only. Identical to `RepeatThenRaw` with one zero count |
-| `0b100WWWWW` `0b00YYYXXX` `S0..Sn` | `P(0bWWWWXXX) + N(0bYYY, S0..Sn)` | `CopyThenRawLong` | `0bWWWWWXXX` (8-255) bytes from previous line, then `0bYYY` (1-7) uncompressed bytes `S0` to `Sn`. |
-| `0b100WWWWW` `0b01YYYXXX` `C` | `P(0bWWWWXXX) + R(0bYYY, C)` | `CopyThenRepeatLong` | `0bWWWWWXXX` (8-255) bytes from previous line, then `0bYYY` (1-7) repeats of `C`. |
-| `0b100WWWWW` `0b11000XXX` | `P(0bWWWWXXX)` | `?` | `0bWWWWWXXX` (8-255) bytes from the previous line only |
-| `0b100WWWWW` `0b11YYY000` | `P(0bWWWWYYY)` | `?` | `0bWWWWWYYY` (8-255) bytes from the previous line only |
-| `0b101WWWWW` `0b00XXXYYY` `C` `S0..Sn` | `R(0bWWWWXXX, C) + N(0bYYY, S0..Sn)` | `RepeatThenRawLong` | `0bWWWWWXXX` (8-255) repeats of `C`, then `0bYYY` (1-7) uncompressed bytes `S0` to `Sn` |
-| `0b101XXXXX` `0b01WWWYYY` `C` `S0..Sn` | `R(0bWWW, C) + N(0bXXXXXYYY, S0..Sn)` | `RepeatThenRawLong` | `0bWWW` (1-7) repeats of `C`, then `0bXXXXXYYY` (8-255) uncompressed bytes `S0` to `Sn`. |
-| `0b101XXXXX` `0b10YYYWWW` `C`| `P(0bWWW) + R(0bXXXXXYYY, C)` | `CopyThenRepeatLong` | `0bWWW` (0-7) bytes from the previous line, then `0bXXXXXYYY` (8-255) repeats of `C` |
-| `0b101XXXXX` `0b11YYYWWW` `S0..Sn` | `P(0bWWW) + N(0bXXXXXYYY, S0..Sn)` | `CopyThenRawLong` | `0bWWW` (0-7) bytes from the previous line, then `0bXXXXXYYY` (8-255) uncompressed bytes `S0` to `Sn` |
-| `0b100UUUUU` `0b101XXXXX` `0b10YYYWWW` `C` | `P(0bUUUUUWWW) + R(0bXXXXXYYY, C)` | `CopyThenRepeatLong` | `0bUUUUUWWW` (8-255) bytes from previous line, then `0bXXXXXYYY` (8-255) repeats of `C`. |
-| `0b100UUUUU` `0b101XXXXX` `0b11YYYWWW` `S0..Sn` | `P(0bUUUUUWWW) + R(0bXXXXXYYY, S0..Sn)` | `CopyThenRawLong` | `0bUUUUUWWW` (8-255) bytes from previous line then `0bXXXXXYYY` (8-255) uncompressed bytes `S0` to `Sn`.  |
+| `0b00YYYXXX` `S0..Sn` | `copy(0bXXX) + raw(0bYYY, S0..Sn)` | `CopyThenRaw` | `0bXXX` (0-7) bytes from previous line then `0bYYY` (1-7) uncompressed bytes `S0` to `Sn` |
+| `0b01YYYXXX` `C` | `copy(0bXXX) + repeat(0bYYY, C)` | `CopyThenRepeat` | `0bXXX` (0-7) bytes from previous line then `0bYYY` (1?-7) repeats of `C` <br>Note: (minimum `repeat()` count may be 2, not 1; please see [this comment](https://github.com/agalakhov/captdriver/issues/33#issuecomment-1874751389) in #33 in the original repo)|
+| `0b11XXXYYY` `C` `S0..Sn` | `repeat(0bXXX, C) + raw(0bYYY, S0..Sn)` | `RepeatThenRaw` | `0bXXX` (1-7) repeats or `C`, then `0bYYY` (1-7) uncompressed bytes `S0` to `Sn`. |
+| `0b11000YYY` | `copy(0bYYY)` | `?` | `0bYYY` (1-7) bytes from the previous line only. Identical to `RepeatThenRaw` with one zero count |
+| `0b11XXX000` | `copy(0bXXX)` | `?` | `0bXXX` (1-7) bytes from the previous line only. Identical to `RepeatThenRaw` with one zero count |
+| `0b100WWWWW` `0b00YYYXXX` `S0..Sn` | `copy(0bWWWWXXX) + raw(0bYYY, S0..Sn)` | `CopyThenRawLong` | `0bWWWWWXXX` (8-255) bytes from previous line, then `0bYYY` (1-7) uncompressed bytes `S0` to `Sn`. |
+| `0b100WWWWW` `0b01YYYXXX` `C` | `copy(0bWWWWXXX) + repeat(0bYYY, C)` | `CopyThenRepeatLong` | `0bWWWWWXXX` (8-255) bytes from previous line, then `0bYYY` (1-7) repeats of `C`. |
+| `0b100WWWWW` `0b11000XXX` | `copy(0bWWWWXXX)` | `?` | `0bWWWWWXXX` (8-255) bytes from the previous line only |
+| `0b100WWWWW` `0b11YYY000` | `copy(0bWWWWYYY)` | `?` | `0bWWWWWYYY` (8-255) bytes from the previous line only |
+| `0b101WWWWW` `0b00XXXYYY` `C` `S0..Sn` | `repeat(0bWWWWXXX, C) + raw(0bYYY, S0..Sn)` | `RepeatThenRawLong` | `0bWWWWWXXX` (8-255) repeats of `C`, then `0bYYY` (1-7) uncompressed bytes `S0` to `Sn` |
+| `0b101XXXXX` `0b01WWWYYY` `C` `S0..Sn` | `repeat(0bWWW, C) + raw(0bXXXXXYYY, S0..Sn)` | `RepeatThenRawLong` | `0bWWW` (1-7) repeats of `C`, then `0bXXXXXYYY` (8-255) uncompressed bytes `S0` to `Sn`. |
+| `0b101XXXXX` `0b10YYYWWW` `C`| `copy(0bWWW) + repeat(0bXXXXXYYY, C)` | `CopyThenRepeatLong` | `0bWWW` (0-7) bytes from the previous line, then `0bXXXXXYYY` (8-255) repeats of `C` |
+| `0b101XXXXX` `0b11YYYWWW` `S0..Sn` | `copy(0bWWW) + raw(0bXXXXXYYY, S0..Sn)` | `CopyThenRawLong` | `0bWWW` (0-7) bytes from the previous line, then `0bXXXXXYYY` (8-255) uncompressed bytes `S0` to `Sn` |
+| `0b100UUUUU` `0b101XXXXX` `0b10YYYWWW` `C` | `copy(0bUUUUUWWW) + repeat(0bXXXXXYYY, C)` | `CopyThenRepeatLong` | `0bUUUUUWWW` (8-255) bytes from previous line, then `0bXXXXXYYY` (8-255) repeats of `C`. |
+| `0b100UUUUU` `0b101XXXXX` `0b11YYYWWW` `S0..Sn` | `copy(0bUUUUUWWW) + raw(0bXXXXXYYY, S0..Sn)` | `CopyThenRawLong` | `0bUUUUUWWW` (8-255) bytes from previous line then `0bXXXXXYYY` (8-255) uncompressed bytes `S0` to `Sn`.  |
 | `0x40` | `NOP` | `NOP` | Dummy non-op. |
 | `0x41` | `EOL` | `EOL` | End of line. Fill the rest of the current line with bytes from the previous line from the same offset on the current line |
 | `0x42` | `EOP` | `EOP` | End of page/picture. Don't decompress anything past this point. |
-| `0x9f`/`0b10011111` | `n + 248` | `Extend` | Add 248 to the byte count for `P()` in `P()+N()` and `P()+R()` commands.<br>Can be used N times in a row for 248 * N bytes.<br>Identical to the first byte in `P(n)+N(m, S0..Sm)` and `P(n)+R(m, C)` where `n` is from 248 to 255. |
+| `0x9f`/`0b10011111` | `n + 248` | `Extend` | Add 248 to the byte count for `copy()` in `copy()+raw()` and `copy()+repeat()` commands.<br>Can be used N times in a row for 248 * N bytes.<br>Identical to the first byte in `copy(n)+raw(m, S0..Sm)` and `copy(n)+repeat(m, C)` where `n` is from 248 to 255. |
 
 The list of operations is believed to be largely complete at time of writing.
 
@@ -114,7 +114,7 @@ Canonical names were taken from a [disassembly of the `captfilter` command](http
 ### Tracking the Previous Line
 The decoder should keep track of the position on the previous line. Every operation advances the position by its count, regardless of using the contents of the previous line or not. For example:
 
-`P(7) + N(2, [0xBA, 0xBE]) + P(7) + R(17, 0xCC) + P(7)`
+`copy(7) + raw(2, [0xBA, 0xBE]) + copy(7) + repeat(17, 0xCC) + copy(7)`
 
 Copies 7 bytes from the previous line,
 
@@ -126,10 +126,10 @@ Skips the next 17 and inserts the same amount of `0xCC` bytes instead, and final
 
 Copies yet another 7 from the previous line.
 
-The behaviour of using `P()` on the first line is unknown. As such, it is advised to assume an imaginary "previous line" entirely of zero `(0x00)` bytes before the first line on the compressed image.
+The behaviour of using `copy()` on the first line is unknown. As such, it is advised to assume an imaginary "previous line" entirely of zero `(0x00)` bytes before the first line on the compressed image.
 
-### Extending `P()` Byte Count With the 0x9f Opcode
-`P()` in `P()+N()` and `P()+R()` may be extended beyond 255 bytes by using one or more `0x9f` commands at the start of the opcode. For example, `0x9f` `0b10000001` `0b01010010` `C` dumps 258 bytes from the previous line followed by two repeats of `C`. Likewise, `0x9f` `0x9f` `0b10000001` `0b01010010` `C` does the same with 506 bytes. Only two `0x9f`'s are necessary to reach the end of the line on an 8.5 inch wide page at 600 dpi.
+### Extending `copy()` Byte Count With the 0x9f Opcode
+The `copy()` in `copy()+raw()` and `copy()+repeat()` may be extended beyond 255 bytes by using one or more `0x9f` commands at the start of the opcode. For example, `0x9f` `0b10000001` `0b01010010` `C` dumps 258 bytes from the previous line followed by two repeats of `C`. Likewise, `0x9f` `0x9f` `0b10000001` `0b01010010` `C` does the same with 506 bytes. Only two `0x9f`'s are necessary to reach the end of the line on an 8.5 inch wide page at 600 dpi.
 
 ### Unknown Cases
 It is yet to be known how `captfilter` or printers handle the following:
@@ -138,7 +138,7 @@ It is yet to be known how `captfilter` or printers handle the following:
 
 * Input images with a width that is not a multiple of eight. Where should padding be added, or should the image be rejected outright?
 
-* Output of `P()` opcodes on the first line of the compressed image. What would printers output?
+* Output of `copy()` opcodes on the first line of the compressed image. What would printers output?
 
 # Support
 The libre open-source [captppd](https://github.com/darkvision77/captppd) driver supports printing to select SCoA printer devices.
