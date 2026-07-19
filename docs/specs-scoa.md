@@ -165,4 +165,8 @@ Canon (2003-12-01). Laser Shot LBP-2410 Colour Laser Printer. ICAN0275. SHA256: 
 # Acknowledgements
 This document is based on findings by Nicolas Boichat and documented in the source files of the [LBP810 and 1120 driver](https://www.boichat.ch/nicolas/capt/).
 
+Thanks to [Alexey Galakhov](https://github.com/agalakhov) for explaining how captfilter and SCoA opcodes work, and [Oleg Sazonov](https://github.com/ra1nst0rm3d) for various tips, in the [SCoA Printers Support](https://github.com/agalakhov/captdriver/issues/33) issue in the original captdriver repo.
+
+Thanks to [@ValdikSS](https://github.com/ValdikSS) and [Andrey Antufyev](https://github.com/darkvision77) for additional research and official Canon names for SCoA commands and CAPT packet types.
+
 Thanks to [@deakjahn](https://github.com/deakjahn) for the tip on the copy-only operations in [Issue #3](https://github.com/mounaiban/studycapt/issues/3).
