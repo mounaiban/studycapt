@@ -74,7 +74,11 @@ Canon CAPT drivers are available in multiple forms from
 multiple websites run by Canon's network of regional
 subsidiaries and subcontractors. The most complete known
 distribution is the [V2.71 CAPT Printer Driver package](https://in.canon/en/support/0100459601?model=4896B005),
-which includes drivers for all known CAPT printer devices.
+which includes drivers for most known CAPT printer devices.
+
+> **NOTE:** Support for the [LBP2410](https://www.canon.com.au/laser-printers/laser-shot-lbp2410/support) and [LBP5200](https://asia.canon/en/support/LBP5200/model) were notably missing from the CAPT Printer Driver Package. Drivers for these devices must be obtained separately.
+Please note that drivers are only available for Windows 98 to Windows 7
+at time of writing and are therefore unsupported on Ubuntu.
 
 To install the drivers, extract the contents of the tarball
 and navigate to the Debian directory to find the two Deb
