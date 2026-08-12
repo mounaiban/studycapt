@@ -4,7 +4,7 @@
 # For Ubuntu Budgie 26.04 LTS only.
 #
 # This autoconfig file sets up an Ubuntu Budgie system for
-#  evaluating and debugging captdriver
+#  evaluating and debugging captdriver and CUPS
 #
 # Adapted from /var/log/installer/autoinstall-user-data
 # Edited by Moses Chong, 2026-06-08
@@ -49,16 +49,25 @@ autoinstall:
   oem:
     install: auto
   packages:
+    - libcups2-dev
+    - libavahi-client-dev
+    - libkrb5-dev
+    - libnss-mdns
+    - libpam-dev
+    - libssl-dev
+    - libsystemd-dev
+    - libusb-1.0-0-dev
+    - avahi-daemon
     - atril
     - automake
     - build-essential
     - gimp
     - git
     - inkscape
-    - libcups2-dev
     - libreoffice
     - vim-gtk3
     - wireshark
+    - zlib1g-dev
   source:
     id: ubuntu-budgie-desktop-minimal
     search_drivers: false
