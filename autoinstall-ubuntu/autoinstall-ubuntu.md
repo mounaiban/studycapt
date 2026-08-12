@@ -23,7 +23,11 @@ When prompted by the Ubuntu installer to choose between an
 Interactive or an Automated installation, select Automated
 Installation, and either:
 
-1. Use the direct URL: https://github.com/mounaiban/studycapt/autoinstall-ubuntu/...
+1. Use the direct URLs:
+
+  * https://raw.githubusercontent.com/mounaiban/studycapt/refs/heads/main/autoinstall-ubuntu/autoinstall-dev.yml
+
+  * https://raw.githubusercontent.com/mounaiban/studycapt/refs/heads/main/autoinstall-ubuntu/autoinstall-capt-ready.yml
 
 2. Run the command `python -m http.server --bind $IP_ADDRESS 9001`
    in the same directory as the autoinstall files.
