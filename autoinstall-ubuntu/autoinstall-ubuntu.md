@@ -86,11 +86,11 @@ packages.
 
 #### Linux CAPT Driver 2.71 Details
 
-* Filename: linux-capt-drv-v271-uken.tar.gz
+* Filename: `linux-capt-drv-v271-uken.tar.gz`
 
-* SHA256: 8565a2fdc4f452bb8cf97ceadadd6614d12eac73e253ac6d59e61b8abae941be
+* SHA256: `8565a2fdc4f452bb8cf97ceadadd6614d12eac73e253ac6d59e61b8abae941be`
 
-* BLAKE3/256: 1d0edfe68c1ab664773811b0c6e9d608b90a4523f4cdac4425c671923a09e2c8
+* BLAKE3/256: `1d0edfe68c1ab664773811b0c6e9d608b90a4523f4cdac4425c671923a09e2c8`
 
 ### Printing via USB
 After installing the official CAPT driver, run the following
@@ -174,7 +174,7 @@ sudo modprobe usbmon && sudo setfacl -m u:${USER}:r /dev/usbmon*
 
 Further configuration will be required to automatically
 enable USB capture across reboots. For details on how to
-do this ,please consult the [Wireshark documentation on](http://wiki.wireshark.org/CaptureSetup/USB).
+do this, please consult the [Wireshark documentation on](http://wiki.wireshark.org/CaptureSetup/USB).
 
 
 ## References
